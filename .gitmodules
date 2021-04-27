@@ -1,0 +1,4 @@
+[submodule "VST"]
+	path = VST
+	url = https://github.com/PrincetonUniversity/VST.git
+	branch = release-v2.6
