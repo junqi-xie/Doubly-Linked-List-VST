@@ -1,6 +1,6 @@
 -Q . PL
 
--Q ./VST-Assignment EV
+-Q ./VT EV
 -Q ./VST/msl VST.msl
 -Q ./VST/veric VST.veric
 -Q ./VST/sepcomp VST.sepcomp
