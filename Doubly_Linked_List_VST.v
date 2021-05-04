@@ -67,9 +67,7 @@
      DECLARE _mallocN
       WITH n: Z
       PRE [tint]
-        (* TODO: how to prove 4 <= sizeof(struct list) <= uint_max *)
-        (* related lemma(s): body_list_new *)
-        PROP ( (*4 <= n <= Int.max_unsigned *) )
+        PROP ( 4 <= n <= Int.max_unsigned )
         PARAMS (Vint (Int.repr n))
         GLOBALS ()
         SEP ()
@@ -116,9 +114,10 @@
       hint.
       
       forward_call ((sizeof(Tstruct _list noattr))%expr).
-      (* TODO: if we add the constrains : 4 <= n <= uint_max in mallocN, we
-                need to prove `4 <= sizeof(struct list) <= uint_max`. 
-                But idk how to do this. *)
+      {
+        simpl.
+        rep_lia.
+      }
       Intros vert.
       hint.
       pose proof memory_block_data_at_ Tsh (Tstruct _list noattr) vert.
