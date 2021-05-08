@@ -72,7 +72,16 @@
       entailer!.
     Qed.
     
-    Lemma dlrep_left_elem: forall l2 v p head tail pv nx, 
+    Lemma singleton_dlrep (x : Z) ( y head tail prev next : val):
+      !! (head = tail /\ head = y) && data_at Tsh t_struct_node (Vint (Int.repr x), (prev, next)) y |-- dlrep [(x,y)] head tail prev next.
+    Proof.
+      intros.
+      unfold dlrep.
+      Exists next.
+      entailer!.
+    Qed.
+    
+    Lemma dlrep_left_elem (l2: list (Z * val)) (v:Z) (p head tail pv nx: val): 
       dlrep ((v,p) :: l2) head tail pv nx |-- 
       EX next,
         !!(p = head) && emp * 
@@ -92,6 +101,27 @@
       Exists head'.
       entailer!.
     Qed.
+    
+    Lemma elem_left_dlrep (l2: list (Z * val)) (v:Z) (p head tail pv nx next: val):
+      !! (p = head) && emp * 
+        dlrep l2 next tail p nx *
+        data_at Tsh t_struct_node (Vint (Int.repr v), (pv, next)) p |-- dlrep ((v,p) :: l2) head tail pv nx.
+    Proof.
+      intros.
+      entailer!.
+      destruct l2.
+      unfold dlrep.
+      Exists next.
+      entailer!.
+      
+      unfold dlrep; fold dlrep.
+      destruct p.
+      Intros head'.
+      Exists next.
+      Exists head'.
+      entailer!.
+    Qed.
+      
     
     Require Import Coq.Classes.RelationClasses.
     Require Import Coq.Classes.Morphisms.
@@ -144,6 +174,78 @@
       Exists prev headof_l2.
       entailer!.   
     Qed.
+    
+    Lemma elem_middle_dlrep (l1 l2 : list (Z * val)) (v : Z) (p head tail pv nx prev next: val):
+      dlrep l1 head prev pv p * 
+            data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p *
+            dlrep l2 next tail p nx |-- dlrep (l1 ++ (v,p) :: l2) head tail pv nx.
+    Proof.
+      revert head tail pv nx prev next p v.
+      induction l1, l2; intros; autorewrite with sublist; unfold dlrep; fold dlrep.
+      + Exists next.
+      entailer!.
+      + destruct p.
+        Intros head'.
+        Exists next head'.
+        entailer!.
+      + assert ((a :: l1) ++ [(v,p)] = a :: (l1 ++ [(v,p)])).
+        list_solve.
+        rewrite H.
+        destruct a.
+        pose proof elem_left_dlrep.
+        specialize (H0 (l1++[(v,p)]) z v0 head tail pv nx).
+        Intros head'.
+        specialize (H0 head').
+        assert_PROP ( data_at Tsh t_struct_node (Vint (Int.repr z), (pv, head')) head *
+    dlrep l1 head' prev head p *
+    data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p * emp|--!! (v0 = head) && emp * dlrep (l1 ++ [(v, p)]) head' tail v0 nx *
+         data_at Tsh t_struct_node (Vint (Int.repr z), (pv, head')) v0).
+         entailer!.
+         cancel.
+         specialize (IHl1 head' p head nx prev nx p v).
+         assert_PROP(dlrep l1 head' prev head p *
+    data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p|--dlrep l1 head' prev head p *
+           data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p *
+           dlrep [] nx p p nx).
+         unfold dlrep; fold dlrep. entailer!. entailer!. 
+         sep_apply H1. sep_apply IHl1. entailer!.
+         sep_apply H4.
+         sep_apply H0.
+         exact H3.
+         entailer!.
+       + destruct a, p.
+         assert (((z, v0) :: l1) ++ (v, p0) :: (z0,v1) :: l2 = (z, v0) :: l1 ++ (v, p0) :: (z0,v1) :: l2).
+        list_solve.
+        rewrite H; clear H.
+        pose proof elem_left_dlrep.
+        Intros l1_head l2_head.
+        specialize (H (l1 ++ (v, p0) :: (z0, v1) :: l2) z v0 head tail pv nx l1_head).
+        
+        assert_PROP (data_at Tsh t_struct_node (Vint (Int.repr z), (pv, l1_head)) head *
+    dlrep l1 l1_head prev head p0 *
+    data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p0 *
+    (data_at Tsh t_struct_node (Vint (Int.repr z0), (p0, l2_head)) next *
+     dlrep l2 l2_head tail next nx) |-- !! (v0 = head) && emp *
+        dlrep (l1 ++ (v, p0) :: (z0, v1) :: l2) l1_head tail v0 nx *
+        data_at Tsh t_struct_node (Vint (Int.repr z), (pv, l1_head)) v0).
+        - entailer!.
+          pose proof elem_left_dlrep.
+          specialize (H0 l2 z0 next next tail p0 nx l2_head).
+          assert_PROP (data_at Tsh t_struct_node (Vint (Int.repr z0), (p0, l2_head)) next *
+     dlrep l2 l2_head tail next nx |-- !! (next = next) && emp * dlrep l2 l2_head tail next nx *
+         data_at Tsh t_struct_node (Vint (Int.repr z0), (p0, l2_head)) next).
+          entailer!. entailer!.
+          sep_apply H1; clear H1.
+          sep_apply H0; clear H0.
+          reflexivity.
+          entailer!.
+          specialize (IHl1 l1_head tail head nx prev next p0 v).
+          sep_apply IHl1; clear IHl1.
+          entailer!.
+        - sep_apply H2; clear H2. sep_apply H; clear H. exact H0.
+        entailer!.
+    Qed.
+        
       
     Lemma dlrep_middle_elem: forall l1 v p l2 head tail pv nx, 
       
@@ -253,7 +355,6 @@
     Lemma body_list_new: semax_body Vprog Gprog_list_new f_list_new list_new_spec.
     Proof.
       start_function.
-      hint.
       
       forward_call ((sizeof(Tstruct _list noattr))%expr).
       {
@@ -261,15 +362,12 @@
         rep_lia.
       }
       Intros vert.
-      hint.
       pose proof memory_block_data_at_ Tsh (Tstruct _list noattr) vert.
-      Check malloc_compatible_field_compatible.
       pose proof malloc_compatible_field_compatible. 
       assert_PROP (complete_legal_cosu_type (Tstruct _list noattr) = true).
       entailer!.
       assert_PROP (natural_aligned natural_alignment (Tstruct _list noattr) = true).
       entailer!.
-      Print compspecs.
       specialize (H1 _ (Tstruct _list noattr) vert).
       assert (field_compatible (Tstruct _list noattr) [] vert).
       tauto.
@@ -290,8 +388,6 @@
       unfold dlrep.
       entailer!.
     Qed.
-    
-    
     (* list_free *)
     Definition list_free_spec :=
      DECLARE _list_free
@@ -440,9 +536,11 @@
       forward.
       unfold list_rep_with_cursor.
       Exists head tail.
+      sep_apply elem_middle_dlrep.
+      
       
       entailer!.
-    Abort.
+    Qed.
     
     (* 2021-04-27 01:16 *)
     
