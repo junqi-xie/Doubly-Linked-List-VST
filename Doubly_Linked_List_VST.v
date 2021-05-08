@@ -80,16 +80,17 @@
       Exists next.
       entailer!.
     Qed.
-
+    
+    
     (* 
-       Lemma dlrep_left_elem.
-
-       dlinklist layout: 
-            | data_at | |------------dlrep l next  tail p nx------------|
-       pv <-> (v, p) <-> (v1, p1) <-> (v2, p2) <-> ...... <-> (v_n, p_n) <-> nx
-               head        next                                   tail 
-              |-------------dlrep (v,p)::l head tail pv nx -------------|    
-    *)
+           Lemma dlrep_left_elem.
+    
+           dlinklist layout: 
+                | data_at | |------------dlrep l next  tail p nx------------|
+           pv <-> (v, p) <-> (v1, p1) <-> (v2, p2) <-> ...... <-> (v_n, p_n) <-> nx
+                   head        next                                   tail 
+                  |-------------dlrep (v,p)::l head tail pv nx -------------|   
+     *)
     Lemma dlrep_left_elem (l2: list (Z * val)) (v:Z) (p head tail pv nx: val): 
       dlrep ((v,p) :: l2) head tail pv nx |-- 
       EX next,
@@ -112,7 +113,7 @@
     Qed.
     
     (* Similar with dlrep_left_elem,
-       but the parameters on the left and right side of `|--` are switched *)
+           but the parameters on the left and right side of `|--` are switched *)
     Lemma elem_left_dlrep (l2: list (Z * val)) (v:Z) (p head tail pv nx next: val):
       !! (p = head) && emp * 
         dlrep l2 next tail p nx *
@@ -152,6 +153,34 @@
       
     Definition tail_ptr (l : list (Z * val)): val :=
       head_with_default (rev (map snd l)) nullval.
+      
+    Lemma elem_right_dlrep (l2 : list (Z * val)) (v : Z) (p head tail pv nx prev: val):
+      !!(p = tail) && emp * 
+        dlrep l2 head prev pv p *
+        data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p
+      |-- dlrep ( l2 ++ [(v,p)]) head tail pv nx.
+    Proof.
+      revert head tail pv nx prev.
+      induction l2; intros.
+      + simpl.
+        Exists nx.
+        entailer!.
+      + unfold dlrep; fold dlrep.
+        autorewrite with norm.
+        destruct a.
+        Intros head'.
+        specialize (IHl2 head' tail head nx prev).
+        assert_PROP ( dlrep l2 head' prev head p *
+    data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p |-- !! (p = tail) && emp * dlrep l2 head' prev head p *
+           data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p).
+        entailer!.
+        sep_apply H1.
+        sep_apply IHl2.
+        exact H.
+        simpl.
+        Exists head'.
+        entailer!.
+    Qed.
     
     (* Similar with dlrep_left_elem, but (v,p) is at the right size of the dlinklist *)
     Lemma dlrep_right_elem: forall l2 v p head tail pv nx, 
@@ -159,6 +188,7 @@
       EX prev,
         !!(p = tail) && emp * 
         dlrep l2 head prev pv p *
+        
         data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p.
           
     Proof.
@@ -185,7 +215,7 @@
       entailer!.   
     Qed.
     
-    (* Similar with dlrep_left_elem, but (p,v) is in the middle of two dlinklist *)
+    (* Similar with elem_left_dlrep, but (p,v) is in the middle of two dlinklist *)
     Lemma elem_middle_dlrep (l1 l2 : list (Z * val)) (v : Z) (p head tail pv nx prev next: val):
       dlrep l1 head prev pv p * 
             data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p *
@@ -257,8 +287,7 @@
         entailer!.
     Qed.
         
-    (* Similar with dlrep_middle_elem,
-       but the parameters on the left and right side of `|--` are switched *)
+      
     Lemma dlrep_middle_elem: forall l1 v p l2 head tail pv nx, 
       
           dlrep (l1 ++ (v,p) :: l2) head tail pv nx |-- EX prev next,
@@ -415,18 +444,51 @@
         
     Definition Gprog_list_free : funspecs := ltac:(with_library prog [list_free_spec; freeN_spec]).
     
+    
+    (* dlrep_ipon: for a list which represent a whole dlinklist,
+                   the corresponding head pointer will always be 
+                   `is_pointer_or_null` 
+                   
+       PS: ipon means: is pointer or null. *)
+    Lemma dlrep_ipon (l: list (Z * val)) (head tail : val):
+      dlrep l head tail nullval nullval |-- !! (is_pointer_or_null head ) && emp * dlrep l head tail nullval nullval.
+    Proof.
+      destruct l.
+      unfold dlrep.
+      
+      entailer!.
+      unfold dlrep. fold dlrep. destruct p. 
+      Intros head'.
+      Exists head'.
+      entailer!.
+    Qed.
+    
+    
+    (* dlrep_hdptr: the head pointer of l is head if pv=nx=nullval *)
+    Lemma dlrep_hdptr (l: list (Z * val)) (head tail: val):
+      dlrep l head tail nullval nullval |-- !!(head_ptr l = head) && emp * dlrep l head tail nullval nullval.
+    Proof.
+      destruct l.
+      unfold dlrep.
+      unfold head_ptr. unfold head_with_default. unfold map. entailer!.
+      unfold dlrep. fold dlrep. destruct p.
+      Intros head'. Exists head'.
+      unfold head_ptr.
+      unfold head_with_default. unfold map. unfold snd. entailer!.
+    Qed.
+    
+    
     Lemma body_list_free: semax_body Vprog Gprog_list_new f_list_free list_free_spec.
     Proof.
       start_function.
       unfold list_rep. unfold list_rep_with_cursor.
       Intros l0 head tail.
       forward.
+      sep_apply dlrep_ipon.
       entailer!.
-      
+      (* TODO: FIND THE LOOP INVARIANT *)
     Abort.
-      
-        
-    
+     
     (* begin *)
     Definition begin_spec :=
      DECLARE _begin
@@ -440,6 +502,23 @@
         PROP ()
         RETURN (head_ptr l)
         SEP (list_rep_with_cursor l p).
+        
+    Definition Gprog_begin : funspecs := ltac:(with_library prog [begin_spec]).
+    
+    Lemma body_begin: semax_body Vprog Gprog_begin f_begin begin_spec.
+    Proof.
+      start_function.
+      unfold list_rep_with_cursor.
+      Intros head tail.
+      forward.
+      sep_apply dlrep_ipon.
+      entailer!.
+      forward.
+      unfold list_rep_with_cursor.
+      sep_apply dlrep_hdptr.
+      Exists head tail.
+      entailer!.
+    Qed.
     
     (* end *)
     Definition end_spec :=
@@ -454,6 +533,19 @@
         PROP ()
         RETURN (nullval)
         SEP (list_rep_with_cursor l p).
+        
+    Definition Gprog_end : funspecs := ltac:(with_library prog [end_spec]).
+    
+    Lemma body_end: semax_body Vprog Gprog_end f_end end_spec.
+    Proof.
+      start_function.
+      unfold list_rep_with_cursor.
+      Intros head tail.
+      forward.
+      unfold list_rep_with_cursor.
+      Exists head tail.
+      entailer!.
+    Qed.
     
     (* rbegin *)
     Definition rbegin_spec :=
@@ -468,6 +560,96 @@
         PROP ()
         RETURN (tail_ptr l)
         SEP (list_rep_with_cursor l p).
+        
+    Definition Gprog_rbegin : funspecs := ltac:(with_library prog [rbegin_spec]).
+    
+    
+    (* llr: if a list l can be represent by a::l', 
+            then it can also be represent by l''++[b]. *)
+    Lemma llr  (l: list (Z*val)) (a: (Z*val)):
+      exists b l', a::l=l'++[b].
+    Proof.
+      pose proof classic (l=[]).
+      destruct H.
+      exists a,(@nil (Z*val)).
+      rewrite H.
+      list_solve.
+      exists (last l a), ([a]++(removelast l)).
+      pose proof app_removelast_last.
+      
+      assert (l = removelast l ++ [last l a]).
+      eapply H0.
+      exact H.
+      simpl.
+      rewrite <- H1.
+    
+      reflexivity.
+    Qed.
+    
+    (* the tail ptr of the list l is its tail *)
+    Lemma dlrep_tlptr (l: list (Z * val)) (head tail: val):
+      dlrep l head tail nullval nullval |-- !!(tail_ptr l = tail) && emp * dlrep l head tail nullval nullval.
+    Proof.
+      destruct l.
+      + unfold dlrep; fold dlrep.
+         unfold tail_ptr. unfold rev,map,snd,head_with_default.
+         entailer!.
+      + pose proof llr.
+        
+        destruct p.
+        
+        unfold tail_ptr.
+        unfold rev,map,snd,head_with_default.
+        unfold dlrep; fold dlrep.
+        Intros head'.
+        Exists head'.
+        entailer!.
+        (*TODO: tail_ptr: fuck u. *)
+    Abort.
+    
+    (* similar with dlrep_ipon, but this time is: is_pointer_or_null tail *)
+    Lemma dlrep_ipon2 (l: list (Z * val)) (head tail : val):
+      dlrep l head tail nullval nullval |-- !! (is_pointer_or_null tail ) && emp * dlrep l head tail nullval nullval.
+    Proof.
+      destruct l.
+      unfold dlrep.
+      
+      entailer!.
+      pose proof llr.
+      specialize (H l p).
+      destruct H as [y [l']].
+      rewrite H.
+      pose proof dlrep_right_elem.
+      destruct y.
+      sep_apply dlrep_right_elem.
+      Intros prev.
+      entailer!.
+      pose proof elem_right_dlrep.
+      specialize (H1 l' z tail head tail nullval nullval prev).
+      assert_PROP (
+        dlrep l' head prev nullval tail *
+    data_at Tsh t_struct_node (Vint (Int.repr z), (prev, nullval)) tail |--
+        !! (tail = tail) && emp * dlrep l' head prev nullval tail *
+         data_at Tsh t_struct_node (Vint (Int.repr z), (prev, nullval)) tail
+      ).
+      entailer!.
+      sep_apply H4.
+      sep_apply H1.
+      reflexivity.
+      entailer!.
+    Qed.
+    
+    Lemma body_rbegin: semax_body Vprog Gprog_end f_rbegin rbegin_spec.
+    Proof.
+      start_function.
+      unfold list_rep_with_cursor.
+      Intros head tail.
+      forward.
+      sep_apply dlrep_ipon2.
+      entailer!.
+      forward.
+      (*TODO: fix the holes of the previous lemma, then this will be solved. *)
+    Abort.
     
     (* rend *)
     Definition rend_spec :=
