@@ -80,7 +80,16 @@
       Exists next.
       entailer!.
     Qed.
-    
+
+    (* 
+       Lemma dlrep_left_elem.
+
+       dlinklist layout: 
+            | data_at | |------------dlrep l next  tail p nx------------|
+       pv <-> (v, p) <-> (v1, p1) <-> (v2, p2) <-> ...... <-> (v_n, p_n) <-> nx
+               head        next                                   tail 
+              |-------------dlrep (v,p)::l head tail pv nx -------------|    
+    *)
     Lemma dlrep_left_elem (l2: list (Z * val)) (v:Z) (p head tail pv nx: val): 
       dlrep ((v,p) :: l2) head tail pv nx |-- 
       EX next,
@@ -102,6 +111,8 @@
       entailer!.
     Qed.
     
+    (* Similar with dlrep_left_elem,
+       but the parameters on the left and right side of `|--` are switched *)
     Lemma elem_left_dlrep (l2: list (Z * val)) (v:Z) (p head tail pv nx next: val):
       !! (p = head) && emp * 
         dlrep l2 next tail p nx *
@@ -128,8 +139,6 @@
     Require Import PL.Imp.
        
     Check data_at.
-    (* goal: represent dlrep l head tail nullval nullval with data_at ... *)
-    
     
     (** Head pointer and tail pointer *)
     Definition head_with_default {A: Type} (l: list A) (default: A): A :=
@@ -143,7 +152,8 @@
       
     Definition tail_ptr (l : list (Z * val)): val :=
       head_with_default (rev (map snd l)) nullval.
-      
+    
+    (* Similar with dlrep_left_elem, but (v,p) is at the right size of the dlinklist *)
     Lemma dlrep_right_elem: forall l2 v p head tail pv nx, 
       dlrep ( l2 ++ [(v,p)]) head tail pv nx |-- 
       EX prev,
@@ -175,6 +185,7 @@
       entailer!.   
     Qed.
     
+    (* Similar with dlrep_left_elem, but (p,v) is in the middle of two dlinklist *)
     Lemma elem_middle_dlrep (l1 l2 : list (Z * val)) (v : Z) (p head tail pv nx prev next: val):
       dlrep l1 head prev pv p * 
             data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p *
@@ -246,7 +257,8 @@
         entailer!.
     Qed.
         
-      
+    (* Similar with dlrep_middle_elem,
+       but the parameters on the left and right side of `|--` are switched *)
     Lemma dlrep_middle_elem: forall l1 v p l2 head tail pv nx, 
       
           dlrep (l1 ++ (v,p) :: l2) head tail pv nx |-- EX prev next,
