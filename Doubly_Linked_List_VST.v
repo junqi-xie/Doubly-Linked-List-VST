@@ -37,6 +37,8 @@
             dlrep l' head' tail head next
       | nil => !! (tail = prev /\ head = next) && emp
       end.
+      
+    
     
     (** Memory representation of a mathematical list. Cursors mean places to
         insert. *)
@@ -48,6 +50,56 @@
     Definition list_rep (l : list Z) (p : val) : mpred :=
       EX l0: list (Z * val),
         !! (map fst l0 = l) && list_rep_with_cursor l0 p.
+        
+        
+    Fixpoint dlseg (sigma: list (Z * val)) (head tail: val) : mpred :=
+      match sigma with
+      | nil => !! (head = tail) && emp
+      | (x,p)::hs => EX prev next:val, !!(p=head) && data_at Tsh t_struct_node (Vint (Int.repr x), (prev, next)) head * dlseg hs next tail
+      end.
+      
+    (*
+      dlrep_singleton: for a dlist with only one element (x, y), it's equivalent to 
+                       data_at y. 
+    *)
+    Lemma dlrep_singleton: forall x y head tail prev next,
+      
+        dlrep [(x,y)] head tail prev next |-- !! (head = tail /\ head = y) && data_at Tsh t_struct_node (Vint (Int.repr x), (prev, next)) y .
+    Proof.
+      intros.
+      unfold dlrep.
+      Intros head'.
+      entailer!.
+    Qed.
+    
+    Lemma dlrep_left_elem: forall l2 v p head tail pv nx, 
+      dlrep ((v,p) :: l2) head tail pv nx |-- 
+      EX next,
+        !!(p = head) && emp * 
+        dlrep l2 next tail p nx *
+        data_at Tsh t_struct_node (Vint (Int.repr v), (pv, next)) p.
+          
+    Proof.
+      intros.
+      destruct l2.
+      sep_apply (dlrep_singleton).
+      unfold dlrep; fold dlrep.
+      Exists nx.
+      entailer!.
+      
+      unfold dlrep. fold dlrep.
+      Intros head'.
+      Exists head'.
+      entailer!.
+    Qed.
+    
+    Require Import Coq.Classes.RelationClasses.
+    Require Import Coq.Classes.Morphisms.
+    Require Import PL.Imp.
+       
+    Check data_at.
+    (* goal: represent dlrep l head tail nullval nullval with data_at ... *)
+    
     
     (** Head pointer and tail pointer *)
     Definition head_with_default {A: Type} (l: list A) (default: A): A :=
@@ -61,6 +113,96 @@
       
     Definition tail_ptr (l : list (Z * val)): val :=
       head_with_default (rev (map snd l)) nullval.
+      
+    Lemma dlrep_right_elem: forall l2 v p head tail pv nx, 
+      dlrep ( l2 ++ [(v,p)]) head tail pv nx |-- 
+      EX prev,
+        !!(p = tail) && emp * 
+        dlrep l2 head prev pv p *
+        data_at Tsh t_struct_node (Vint (Int.repr v), (prev, nx)) p.
+          
+    Proof.
+      intros.
+      revert head tail pv nx.
+      induction l2; intros.
+      autorewrite with sublist.
+      sep_apply (dlrep_singleton).
+      Exists pv.
+      unfold dlrep; fold dlrep.
+      entailer!.
+      
+      unfold dlrep. fold dlrep.
+      autorewrite with norm.
+      destruct a.
+      simpl.
+      Intros  headof_l2.
+      
+      specialize (IHl2 headof_l2 tail head nx).
+      sep_apply IHl2.
+      simpl.
+      Intros prev.
+      Exists prev headof_l2.
+      entailer!.   
+    Qed.
+      
+    Lemma dlrep_middle_elem: forall l1 v p l2 head tail pv nx, 
+      
+          dlrep (l1 ++ (v,p) :: l2) head tail pv nx |-- EX prev next,
+            dlrep l1 head prev pv p * 
+            data_at Tsh t_struct_node (Vint (Int.repr v), (prev, next)) p *
+            dlrep l2 next tail p nx.
+       
+    Proof.
+      intros.
+      
+      revert head tail pv nx.
+      induction l1, l2; intros; autorewrite with sublist; unfold dlrep; fold dlrep.
+      + 
+        Intros next.
+        Exists pv nx.
+        entailer!.
+      +  
+       Intros next.
+        Exists pv next.
+        entailer!.
+      + 
+        assert ((a :: l1) ++ [(v,p)] = a :: (l1 ++ [(v,p)])).
+        list_solve.
+        rewrite H.
+        pose proof dlrep_left_elem.
+        destruct a.
+        specialize (H0 (l1++[(v,p)]) z v0 head tail pv nx).
+        sep_apply H0.
+        clear  H0.
+        Intros next.
+        specialize (IHl1 next tail v0 nx).
+        sep_apply IHl1.
+        Intros prev next0.
+        Exists prev next0.
+        Exists next.
+        unfold dlrep; fold dlrep.
+        entailer!.
+      + pose proof dlrep_left_elem.
+        destruct a.
+        assert (((z, v0) :: l1) ++ (v, p) :: p0 :: l2 = (z, v0) :: l1 ++ (v, p) :: p0 :: l2).
+        list_solve.
+        rewrite H0; clear H0.
+        specialize (H (l1 ++ (v, p) :: p0 :: l2) z v0 head tail pv nx).
+        sep_apply H.
+        Intros next.
+        specialize (IHl1 next tail v0 nx).
+        sep_apply IHl1.
+        Intros prev next0.
+        Exists prev next0.
+        Exists next.
+        destruct p0.
+        pose proof dlrep_left_elem.
+        specialize (H1 l2 z0 v1 next0 tail p nx).
+        sep_apply H1.
+        Intros next1.
+        Exists next1.
+        entailer!.
+    Qed.
     
     (* mallocN *)
     Definition mallocN_spec :=
@@ -168,12 +310,12 @@
     Lemma body_list_free: semax_body Vprog Gprog_list_new f_list_free list_free_spec.
     Proof.
       start_function.
-      unfold list_rep.
-      fold list_rep.
-      unfold list_rep_with_cursor.
+      unfold list_rep. unfold list_rep_with_cursor.
       Intros l0 head tail.
       forward.
       entailer!.
+      
+    Abort.
       
         
     
@@ -274,6 +416,33 @@
         PROP ()
         RETURN (Vint (Int.repr v))
         SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x).
+        
+    Definition Gprog_get_val : funspecs := ltac:(with_library prog [get_val_spec]).
+    
+    (* dlrep (l1 ++ (v, p) :: l2) head tail
+         nullval nullval))
+       ==> convert to: dlrep l1 head tail' nullval nullval * data_at (v, p) * dlrep l2 head' tail nullval nullval *)
+    
+        
+    
+    Lemma body_get_val: semax_body Vprog Gprog_get_val f_get_val get_val_spec.
+    Proof.
+      start_function.
+      unfold MORE_COMMANDS, abbreviate.
+      unfold list_rep_with_cursor.
+      Intros head tail.
+      unfold dlrep. fold dlrep.
+      pose proof dlrep_middle_elem.
+      specialize (H l1 v p l2 head tail nullval nullval).
+      sep_apply H.
+      Intros prev next.
+      forward.
+      forward.
+      unfold list_rep_with_cursor.
+      Exists head tail.
+      
+      entailer!.
+    Abort.
     
     (* 2021-04-27 01:16 *)
     
