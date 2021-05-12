@@ -1,6 +1,5 @@
--Q . PL
+-Q . EV
 
--Q ./VT EV
 -Q ./VST/msl VST.msl
 -Q ./VST/veric VST.veric
 -Q ./VST/sepcomp VST.sepcomp
