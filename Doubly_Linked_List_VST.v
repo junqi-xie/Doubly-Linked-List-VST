@@ -324,16 +324,88 @@ Proof.
     entailer!.
 Qed.
 
-Lemma dlrep_local_facts_tail:
-  forall l head tail,
-    dlrep l head tail nullval nullval |--
-    !! (is_pointer_or_null tail ) && emp * dlrep l head tail nullval nullval.
+Lemma dlrep_local_facts_head_empty:
+  forall head tail prev, 
+    dlrep [] head tail prev nullval |--
+    !! (is_pointer_or_null head) && emp * dlrep [] head tail prev nullval.
+Proof. 
+  intros. 
+  unfold dlrep. 
+  entailer!. 
+Qed.
+
+Lemma dlrep_local_facts_head_not_empty (l: list (Z * val)):
+  forall head tail prev next, 
+    (l <> @nil (Z*val))->
+      dlrep l head tail prev next |--
+      !! (is_pointer_or_null head) && emp * dlrep l head tail prev next.
 Proof.
+  intros.
   destruct l.
+  + contradiction.
+  + unfold dlrep; fold dlrep.
+    destruct p.
+    Intros head'; Exists head'.
+    entailer!.
+Qed.  
+
+Lemma dlrep_local_facts_head_not_empty2 (l: list (Z * val)):
+  forall head tail prev next, 
+    (@nil (Z*val) <> l)->
+      dlrep l head tail prev next |--
+      !! (is_pointer_or_null head) && emp * dlrep l head tail prev next.
+Proof.
+  intros.
+  destruct l.
+  + contradiction.
+  + unfold dlrep; fold dlrep.
+    destruct p.
+    Intros head'; Exists head'.
+    entailer!.
+Qed.  
+
+Lemma dlrep_local_facts_tail_empty:
+  forall head tail,
+    dlrep (@nil (Z*val)) head tail nullval nullval |--
+    !! (is_pointer_or_null tail ) && emp * dlrep (@nil (Z*val)) head tail nullval nullval.
+Proof.
   unfold dlrep.
   { entailer!. }
+Qed.
+
+Require Import PL.Imp.
   
-Admitted.
+Lemma dlrep_local_facts_tail_not_empty (l: list (Z * val)):
+forall head tail prev next, 
+  l <> (@nil (Z*val)) ->
+    dlrep l head tail prev next |--
+    !! (is_pointer_or_null tail) && emp * dlrep l head tail prev next.
+Proof.
+  intros.
+  revert head tail prev next.
+  induction l.
+  + contradiction.
+  + destruct a.
+    unfold dlrep; fold dlrep.
+    intros.
+    Intros head'.
+    Exists head'.
+    pose proof classic (l <> []).
+    destruct H1.
+    - 
+      assert (forall head tail prev next : val,
+        dlrep l head tail prev next
+        |-- !! is_pointer_or_null tail && emp * dlrep l head tail prev next).
+      tauto.
+      specialize (H2 head' tail head next).
+      sep_apply H2.
+      entailer. entailer!.
+    - assert (l = []).
+      tauto.
+      rewrite H2.
+      unfold dlrep. 
+      entailer!.
+Qed.
 
 (** Memory representation of a mathematical list. Cursors mean places to
     insert. *)
@@ -359,6 +431,15 @@ Definition head_ptr (l : list (Z * val)): val :=
 Definition tail_ptr (l : list (Z * val)): val :=
   head_with_default (rev (map snd l)) nullval.
 
+Lemma tail_ptr_push_front (z: Z) (v: val) (l: list (Z*val)):
+  l <> (@nil (Z*val))-> 
+    tail_ptr((z, v)::l) = tail_ptr l.
+Proof.
+  revert z v.
+  induction l; intros.
+  (* TODO: Prove this useful and correct lemma. *)
+Admitted.
+
 Lemma dlrep_head_ptr:
   forall l head tail,
     dlrep l head tail nullval nullval |--
@@ -378,19 +459,67 @@ Proof.
   entailer!.
 Qed.
 
-Lemma dlrep_tail_ptr:
-  forall l head tail,
-    dlrep l head tail nullval nullval |--
-    !!(tail_ptr l = tail) && emp * dlrep l head tail nullval nullval.
+Lemma dlrep_head_ptr_not_empty:
+  forall l head tail prev next,
+    l <> (@nil (Z*val)) ->
+      dlrep l head tail prev next |--
+        !! (head_ptr l = head) && emp * dlrep l head tail prev next.
 Proof.
   intros.
   destruct l.
-  + unfold dlrep; fold dlrep.
-    unfold tail_ptr, head_with_default, rev, map, snd.
-    entailer!.
-  + 
+  unfold dlrep, head_with_default, map. entailer!.
+  unfold dlrep; fold dlrep.
+  destruct p.
+  Intros head'; Exists head'.
+  unfold head_ptr, head_with_default, map, snd.
+  entailer!.
+Qed.
 
-Admitted.
+Lemma dlrep_tail_ptr_empty:
+  forall head tail next,
+    dlrep [] head tail nullval next |--
+    !!(tail_ptr [] = tail) && emp * dlrep [] head tail nullval next.
+Proof.
+  intros.
+  unfold dlrep.
+  entailer!.
+Qed.
+
+Lemma dlrep_tail_ptr_not_empty:
+  forall l head tail prev next,
+    l <> (@nil (Z*val)) -> 
+    dlrep l head tail prev next |--
+      !!(tail_ptr l = tail) && emp * dlrep l head tail prev next.
+Proof.
+  intros.
+  revert head tail prev next.
+  induction l; intros.
+  + contradiction.
+  + pose proof classic (l <> []).
+    destruct a.
+    destruct H0.
+    - assert (forall head tail prev next : val,
+          dlrep l head tail prev next
+          |-- !! (tail_ptr l = tail) && emp * dlrep l head tail prev next).
+      tauto.
+      unfold dlrep; fold dlrep.
+      Intros head'; Exists head'.
+      specialize (H1 head' tail head next).
+      sep_apply H1.
+      entailer!.
+      eapply tail_ptr_push_front.
+      exact H0.
+    - assert (l = []).
+      tauto.
+      rewrite (H1).
+      unfold dlrep.
+      Intros head'; Exists head'.
+      unfold tail_ptr, head_with_default, rev, map, snd.
+      assert ([] ++ [v] = [v]).
+      list_solve.
+      rewrite H5.
+      entailer!.
+Qed.
 
 (** Specifications about memory operations *)
 
@@ -602,12 +731,29 @@ Proof.
   unfold list_rep_with_cursor.
   Intros head tail.
   forward.
-  sep_apply dlrep_local_facts_tail.
-  entailer!.
-  forward.
-  (* TODO: fix the holes of the previous lemma. *)
-Admitted.
-
+  pose proof classic (l <> []).
+  destruct H.
+  + sep_apply dlrep_local_facts_tail_not_empty.
+    entailer!. 
+  + assert (l = []).
+    tauto.
+    rewrite H0.
+    sep_apply dlrep_local_facts_tail_empty.
+    entailer!.
+  + forward.
+    unfold list_rep_with_cursor.
+    Exists head tail.
+    pose proof classic (l <> []).
+    destruct H1.
+    -
+      sep_apply dlrep_tail_ptr_not_empty.
+      entailer!.
+    - assert (l = []).
+      tauto.
+      rewrite H2.
+      sep_apply dlrep_tail_ptr_empty.
+      entailer!.   
+Qed.
 (* rend *)
 Definition rend_spec :=
  DECLARE _rend
@@ -628,8 +774,14 @@ Definition Gprog_rend : funspecs :=
 Theorem body_rend: semax_body Vprog Gprog_rend
                      f_rend rend_spec.
 Proof.
-
-Admitted.
+  start_function.
+  unfold list_rep_with_cursor.
+  Intros head tail.
+  forward.
+  unfold list_rep_with_cursor.
+  Exists head tail.
+  entailer!.
+Qed.
 
 (* next *)
 Definition next_spec :=
@@ -651,8 +803,46 @@ Definition Gprog_next : funspecs :=
 Theorem body_next: semax_body Vprog Gprog_next
                      f_next next_spec.
 Proof.
-
-Admitted.
+  start_function.
+  unfold list_rep_with_cursor.
+  Intros head tail.
+  sep_apply dlrep_middle_elem.
+  Intros pv nx.
+  forward.
+  pose proof classic (l2 <> []).
+  destruct H.
+  + pose proof dlrep_local_facts_head_not_empty l2 nx tail p nullval.
+    sep_apply H0. 
+    entailer!.
+  + assert (l2 = []).
+    tauto.
+    rewrite H0.
+    unfold dlrep at 2.
+    entailer!.
+  + forward.
+    unfold list_rep_with_cursor.
+    Exists head tail.
+    pose proof classic (l2 <> []).
+    destruct H3.
+    - pose proof dlrep_head_ptr_not_empty l2 nx tail p nullval. intuition.
+      sep_apply H5.
+      cancel. 
+      pose proof elem_middle_dlrep.
+      specialize (H4 l1 l2 v p head tail nullval nullval pv nx).
+      sep_apply H4.
+      entailer!.
+    - assert (l2 = []).
+      tauto.
+      rewrite H4.
+      unfold dlrep at 2.
+      cancel.
+      entailer!.
+      pose proof elem_right_dlrep.
+      specialize (H4 l1 v p head p nullval nullval pv).
+      sep_apply H4.
+      reflexivity.
+      entailer!.
+Qed.
 
 (* rnext *)
 Definition rnext_spec :=
@@ -674,7 +864,14 @@ Definition Gprog_rnext : funspecs :=
 Theorem body_rnext: semax_body Vprog Gprog_rnext
                f_rnext rnext_spec.
 Proof.
-
+  start_function.
+  unfold list_rep_with_cursor.
+  Intros head tail.
+  sep_apply dlrep_middle_elem.
+  Intros pv nx.
+  pose proof classic (l1<>[]).
+  destruct H.
+  + forward. 
 Admitted.
 
 (* get_val *)
