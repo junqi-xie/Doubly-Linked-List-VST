@@ -431,15 +431,123 @@ Definition head_ptr (l : list (Z * val)): val :=
 Definition tail_ptr (l : list (Z * val)): val :=
   head_with_default (rev (map snd l)) nullval.
 
-Lemma tail_ptr_push_front (z: Z) (v: val) (l: list (Z*val)):
-  l <> (@nil (Z*val))-> 
-    tail_ptr((z, v)::l) = tail_ptr l.
+(*
+Lemma head_with_default_rev (l: list (Z*val)):
+forall a, 
+  l <> (@nil (Z*val)) ->
+    head_with_default (rev (a :: l))  = head_with_default (rev l).
 Proof.
-  revert z v.
+  intros.
+  induction l.
+  + contradiction.
+  + 
+    pose proof classic (l2 <> []).
+    destruct H0.
+    - assert (forall l1 : list (Z * val),
+    head_with_default (rev (l1 ++ l2)) = head_with_default (rev l2)).
+      tauto.
+      pose proof H1.
+      specialize (H1 (l1 ++ [a])).
+      specialize (H2 ([a])).
+      assert ([a] ++ l2 = a::l2).
+      list_solve.
+      assert ((l1 ++ [a]) ++ l2 = l1 ++ a :: l2).
+      list_solve.
+      rewrite <- H4. 
+      rewrite <- H3.
+      rewrite H1.
+      rewrite H2.
+      reflexivity. 
+    - assert (l2 = []).
+      tauto.
+      rewrite H1.
+      clear H H0 H1.
+      revert a.
+      induction l1; intros.
+      autorewrite with sublist. reflexivity.
+Abort.
+
+*)
+
+Lemma tail_ptr_push_front_list_singleton(a:Z*val):
+  forall lp,
+      tail_ptr (lp ++ [a]) = tail_ptr [a].
+Proof.
+  revert a. induction lp.
+  autorewrite with sublist. reflexivity.
+
+Abort.
+
+
+
+Lemma tail_ptr_push_front_strong (l: list (Z*val)):
+  forall lp, l <>(@nil (Z*val)) ->
+      tail_ptr(lp ++ l) = tail_ptr l.
+Proof.
+  intros.
   induction l; intros.
-  (* TODO: Prove this useful and correct lemma. *)
+  destruct H. reflexivity.
+  pose proof classic (l = []).
+  - destruct H0.
+    rewrite H0.
+    unfold tail_ptr.
+    unfold head_with_default, rev, map, snd. 
+
+
 Admitted.
 
+Lemma tail_ptr_push_front(l : list (Z*val)):
+  forall a,
+    l <> (@nil (Z*val)) ->
+      tail_ptr(a :: l) = tail_ptr l.
+Proof.
+  (*  李竞翔 (2021/5/21): 
+      我尝试证明: forall l <> [], tail_ptr(a::l)=tail_ptr l.
+      
+      通过对l做归纳，这可以分成两个步骤:
+        1. l = []. 然后就会出现[] <> []这样的东西，用contradiction就结束了
+        2. l = a0::l'. 
+           根据归纳，我们还有这个条件: forall a, l'<>[]->tail_ptr(a::l')=tail_ptr(l') 
+           我们需要证明: tail_ptr(a0::a::l')=tail_ptr(a::l'),
+           左边这里有两个元素，感觉有点进行不下去。
+           我尝试通过对l'是否为空进行讨论来解决这个问题。 
+           如果l'为空，那么直接一通unfold就解决了
+           如果l'不为空，那么我就不知道怎么证了。我的想法大概是，证明：
+             tail_ptr(a0::a::l') = tail_ptr(l') 和 tail_ptr(a::l')=tail_ptr(l')
+           然后再用rewrite完成这个证明. 然而好像做不太到。
+
+      由于前面是因为左边有两个元素而卡住，我尝试加强一下原命题。
+      把往列表l前面添加一个元素，换成添加一个列表。
+      也就是: Lemma tail_ptr_push_front_strong: forall l <> [] tail_ptr(lp++l)=tail_ptr l.
+      同样地，这里我对l做归纳：
+        1. l=[]. 直接contradiction.
+        2. l=a0::l'.
+           对于l'不为空的情况，那么通过归纳的条件，我能够完成证明。
+           但是对于l'为空的情况，我需要证明：
+             tail_ptr(lp++[a0]) = tail_ptr([a0]), 这看起来似乎需要一个新的引理。
+      然后我尝试证明这个新引理，并把它命名为： `tail_ptr_push_front_list_singleton`.
+      但是我在证明这个新引理的时候，我遇到了这个东西：
+        tail_ptr ((a0 :: lp) ++ [a]) = tail_ptr [a].
+      看起来似乎我需要用到 `tail_ptr_push_front_strong`这个引理，
+      然后似乎就变成了这样的情况：(`->`表示依赖于)
+      tail_ptr_push_front ---> tail_ptr_push_front_strong
+                                         |  ^
+                                         |  |
+                                         |  |
+                                         v  |
+                         tail_ptr_push_front_list_singleton
+      大概是哪里搞错了，或者弄复杂了吧...
+      不是很懂，先写下来
+      
+  *)
+  intros.
+  revert a.
+  induction l.
+  { contradiction. }
+  intros.
+  pose proof tail_ptr_push_front_strong.
+  specialize (H0 l [a]). Admitted.
+  
 Lemma dlrep_head_ptr:
   forall l head tail,
     dlrep l head tail nullval nullval |--
@@ -632,17 +740,58 @@ Definition list_free_spec :=
 Definition Gprog_list_free : funspecs :=
             ltac:(with_library prog [list_free_spec; freeN_spec]).
 
-Theorem body_list_free: semax_body Vprog Gprog_list_new
+Theorem body_list_free: semax_body Vprog Gprog_list_free
                           f_list_free list_free_spec.
 Proof.
-  start_function.
+  start_function. 
 
   unfold list_rep, list_rep_with_cursor.
   Intros l0 head tail.
   forward.
   sep_apply dlrep_local_facts_head.
   entailer!.
-  (* TODO: Find the loop invariant. *)
+  unfold LOOP_BODY, abbreviate.
+  Print memory_block.
+  Print List.length.
+  Print Datatypes.length.
+
+  (*
+    设：原来的双向链表可以用dlrep l0 head tail nullval nullval表示；
+    再设：l1为已经被free掉的元素构成的列表，l2为还没有被free掉的元素构成的列表
+    则有：l0 = l1 ++ l2.
+  
+    循环不变量：
+      PROP: l0 = l1 ++ l2.
+      SEP:
+        首先是局部变量p: data_at Tsh t_struct_list (head, tail) p
+        然后是剩下的(还没有被释放的)链表：dlrep l2 head' tail nullval nullval.
+        被释放掉的部分，则表现为一个memory block，大小为：(结构体的size)*length(l1), 起始位置为：head
+  *)
+  forward_while(
+    EX l1 l2: list (Z*val),
+    EX head': val,
+    PROP (l0 = l1 ++ l2)
+    LOCAL (temp _tmp head'; temp _l p)
+    SEP ( (dlrep l2 head' tail nullval nullval) *
+           data_at Tsh t_struct_list (head, tail) p *
+          (memory_block Tsh (((sizeof(Tstruct _node noattr))%expr) * (Z.of_nat (List.length l1))) head)  
+    )
+  )%assert.
+  + Exists (@nil (Z*val)) (l0) head.
+    unfold Datatypes.length.
+    assert (sizeof (Tstruct _node noattr) * Z.of_nat 0 = 0).
+    lia.
+    rewrite H0. 
+    autorewrite with sublist.
+    pose proof memory_block_zero Tsh head. rewrite H1.
+    entailer!.
+    (* isptr head: ??? *)
+    admit.
+  + entailer!.
+    simpl.
+    admit.
+  + admit. 
+  (* TODO: I dont know whether this is correct or not :( . *)
 Admitted.
 
 (* begin *)
@@ -921,6 +1070,77 @@ Qed.
 
 (* sum *)
 
+(*
+  开始：dlrep l0 p q nullval nullval
+  
+
+  while (p != q)
+  {
+      s = s + get_val(p);
+      p = next(p);
+  }
+
+  口胡出来的循环不变量：
+    EX prev l1 l2 begin,
+    PROP:
+      l0 = l1 ++ l2.
+      s = (sum_list l1).
+    SEP:
+      dlrep l2 p q prev nullval
+      dlrep l1 begin prev nullval p
+  解释：
+    原双向链表l可以用dlrep l0 head tail nullval nullval 表示
+    我们把l分为l1和l2两个部分，前者是从begin到p的前一个，即：prev，后者是p到end，即：
+    begin <-> element_1 <-> element_2 <-> element_3 <-> ... <-> prev <-> p <-> ... <-> end
+    |------------------------  l1 ----------------------------------|   |-------l2--------|
+    那么s的值就是l1的所有元素的和，
+    l也显然是l1 ++ l2
+
+  不过这样写好像不太容易做... 还涉及到了一个sum_list函数，不过
+  我想不到有什么能避开这样的操作的方法。
+*)
+
 (* delta *)
+
+(*
+  while (p != r)
+  {
+      s = s + get_val(p);
+      p = next(p);
+  }
+  while (p != q)
+  {
+      s = s - get_val(p);
+      p = next(p);
+  }
+  口胡出来的循环不变量：
+    前一个循环不变量：和sum类似，不多说了
+    前面一个循环出来后：
+      EX prev_r l1 l2 begin
+        l0 = l1 ++ l2.
+        dlrep l1 begin prev_r nullval r
+        dlrep l2 r q prev nullval
+    l1 表示了 双向链表从begin到r的前面一个(这里定义成了prev)
+    l2 表示了 双向链表从r到结尾
+    这些里面涉及到的"EX"应该可以用Intros提到外面去
+
+    后一个循环不变量：
+      EX prev l2l l2r begin next_r, 
+      PROP: 
+        l0 = l1 ++ l2l ++ l2r
+        l2 = l2l ++ l2r
+        s = (sum_list l1) - (sum_list l2l)
+      SEP:
+        dlrep l2l r prev p nullval
+        dlrep l1 begin prev_v nullval r
+        dlrep l2r p q prev nullval
+    解释：
+      此处 l1含义同上
+      l2可以进一步分为l2l和l2r: 前者是从r到p的前一个，后者是p到q
+      然后s的值也就是l1的所有元素和再减去l2l的所有元素的和了。
+
+    同样的，感觉不太容易进行下去，可能整个思路都还需要一些修改..
+
+*)
 
 (* 2021-04-27 01:16 *)
