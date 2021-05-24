@@ -1115,7 +1115,7 @@ Definition merge_spec :=
     PROP () 
     PARAMS (p1; p2)
     GLOBALS ()
-    SEP (list_rep l1 p1 && list_rep l2 p2)
+    SEP (list_rep l1 p1 * list_rep l2 p2)
   POST [ Tvoid ]
     PROP ()
     RETURN ()
