@@ -331,7 +331,7 @@ Lemma dlrep_local_facts_head_empty:
 Proof. 
   intros. 
   unfold dlrep. 
-  entailer!. 
+  entailer!.
 Qed.
 
 Lemma dlrep_local_facts_head_not_empty (l: list (Z * val)):
@@ -347,7 +347,7 @@ Proof.
     destruct p.
     Intros head'; Exists head'.
     entailer!.
-Qed.  
+Qed.
 
 Lemma dlrep_local_facts_head_not_empty2 (l: list (Z * val)):
   forall head tail prev next, 
@@ -362,7 +362,7 @@ Proof.
     destruct p.
     Intros head'; Exists head'.
     entailer!.
-Qed.  
+Qed.
 
 Lemma dlrep_local_facts_tail_empty:
   forall head tail,
@@ -465,7 +465,7 @@ Proof.
       revert a.
       induction l1; intros.
       autorewrite with sublist. reflexivity.
-Abort.
+Admitted.
 
 *)
 
@@ -476,7 +476,7 @@ Proof.
   revert a. induction lp.
   autorewrite with sublist. reflexivity.
 
-Abort.
+Admitted.
 
 
 
@@ -491,8 +491,7 @@ Proof.
   - destruct H0.
     rewrite H0.
     unfold tail_ptr.
-    unfold head_with_default, rev, map, snd. 
-
+    unfold head_with_default, rev, map, snd.
 
 Admitted.
 
@@ -546,7 +545,9 @@ Proof.
   { contradiction. }
   intros.
   pose proof tail_ptr_push_front_strong.
-  specialize (H0 l [a]). Admitted.
+  specialize (H0 l [a]).
+  
+Admitted.
   
 Lemma dlrep_head_ptr:
   forall l head tail,
@@ -1061,14 +1062,105 @@ Proof.
 Qed.
 
 (* insert_before *)
+Definition insert_before_spec :=
+ DECLARE _insert_before
+  WITH l1 : list (Z * val), v : Z, v': Z, p : val, p': val, l2 : list (Z * val), x: val
+  PRE  [ tptr t_struct_list, tptr t_struct_node, tuint ]
+    PROP () 
+    PARAMS (x; p; Vint (Int.repr v'))
+    GLOBALS ()
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x)
+  POST [ Tvoid ]
+    PROP ()
+    RETURN ()
+    SEP (list_rep_with_cursor (l1 ++ [(v', p')] ++ [(v, p)] ++ l2) x).
+
+Definition Gprog_insert_before : funspecs :=
+            ltac:(with_library prog [insert_before_spec]).
+
+Theorem body_insert_before: semax_body Vprog Gprog_insert_before
+                              f_insert_before insert_before_spec.
+Proof.
+
+Admitted.
 
 (* insert_after *)
+Definition insert_after_spec :=
+ DECLARE _insert_after
+  WITH l1 : list (Z * val), v : Z, v': Z, p : val, p': val, l2 : list (Z * val), x: val
+  PRE  [ tptr t_struct_list, tptr t_struct_node, tuint ]
+    PROP () 
+    PARAMS (x; p; Vint (Int.repr v'))
+    GLOBALS ()
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x)
+  POST [ Tvoid ]
+    PROP ()
+    RETURN ()
+    SEP (list_rep_with_cursor (l1 ++ [(v', p')] ++ [(v, p)] ++ l2) x).
+
+Definition Gprog_insert_after : funspecs :=
+            ltac:(with_library prog [insert_after_spec]).
+
+Theorem body_insert_after: semax_body Vprog Gprog_insert_after
+                              f_insert_after insert_after_spec.
+Proof.
+
+Admitted.
 
 (* merge *)
+Definition merge_spec :=
+ DECLARE _merge
+  WITH l1 : list Z, p1 : val, l2 : list Z, p2: val
+  PRE  [ tptr t_struct_list, tptr t_struct_list ]
+    PROP () 
+    PARAMS (p1; p2)
+    GLOBALS ()
+    SEP (list_rep l1 p1 && list_rep l2 p2)
+  POST [ Tvoid ]
+    PROP ()
+    RETURN ()
+    SEP (list_rep (l1 ++ l2) p1).
+
+Definition Gprog_merge : funspecs :=
+            ltac:(with_library prog [merge_spec]).
+
+Theorem body_merge: semax_body Vprog Gprog_merge
+                      f_merge merge_spec.
+Proof.
+
+Admitted.
 
 (** Functions to be verified. *)
 
 (* sum *)
+Fixpoint sum_list (l: list Z): Z :=
+  match l with
+  | nil => 0
+  | h :: hs =>
+    h + sum_list hs
+  end.
+
+Definition sum_spec :=
+ DECLARE _sum
+  WITH l : list Z, p: val
+  PRE  [ tptr t_struct_list ]
+    PROP () 
+    PARAMS (p)
+    GLOBALS ()
+    SEP (list_rep l p)
+  POST [ tuint ]
+    PROP ()
+    RETURN (Vint (Int.repr (sum_list l)))
+    SEP (list_rep l p).
+
+Definition Gprog_sum : funspecs :=
+            ltac:(with_library prog [sum_spec]).
+
+Theorem body_sum: semax_body Vprog Gprog_sum
+                    f_sum sum_spec.
+Proof.
+
+Admitted.
 
 (*
   开始：dlrep l0 p q nullval nullval
@@ -1101,6 +1193,29 @@ Qed.
 *)
 
 (* delta *)
+Definition delta_spec :=
+ DECLARE _delta
+ l1 : list (Z * val), v: Z, p: val, l2 : list (Z * val), x: val
+  PRE  [ tptr t_struct_node ]
+    PROP () 
+    PARAMS (x; p)
+    GLOBALS ()
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x)
+  POST [ tuint ]
+    PROP ()
+    RETURN (Vint (Int.repr (sum_list (map fst l1 ++ [(v, p)]) - sum_list (map fst l2))))
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x).
+
+(* 此处 RETURN 中的参数表达有一些问题，不过意思应当是明确的。不知如何在 VST 中对这一性质进行描述。 *)
+
+Definition Gprog_delta : funspecs :=
+            ltac:(with_library prog [delta_spec]).
+
+Theorem body_delta: semax_body Vprog Gprog_delta
+                      f_delta delta_spec.
+Proof.
+
+Admitted.
 
 (*
   while (p != r)
