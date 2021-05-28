@@ -365,9 +365,9 @@ Proof.
 Qed.
 
 Lemma dlrep_local_facts_tail_empty:
-  forall head tail,
-    dlrep (@nil (Z*val)) head tail nullval nullval |--
-    !! (is_pointer_or_null tail ) && emp * dlrep (@nil (Z*val)) head tail nullval nullval.
+  forall head tail p,
+    dlrep (@nil (Z*val)) head tail nullval p |--
+    !! (is_pointer_or_null tail ) && emp * dlrep (@nil (Z*val)) head tail nullval p.
 Proof.
   unfold dlrep.
   { entailer!. }
@@ -430,124 +430,144 @@ Definition head_ptr (l : list (Z * val)): val :=
   
 Definition tail_ptr (l : list (Z * val)): val :=
   head_with_default (rev (map snd l)) nullval.
+  Lemma rev_app_eq (l: list (Z*val)):
+  forall a : (Z*val),
+    rev (a::l) = rev l ++ a :: (@nil (Z*val)).
+Proof.
+  intros.
+  unfold rev at 1.
+  assert (rev l = (fix rev (l0 : list (Z * val)) : list (Z * val) :=
+  match l0 with
+  | [] => []
+  | x :: l' => rev l' ++ [x]
+  end) l).
+  unfold rev; reflexivity.
+  rewrite <- H.
+  reflexivity.
+Qed.
 
-(*
-Lemma head_with_default_rev (l: list (Z*val)):
-forall a, 
-  l <> (@nil (Z*val)) ->
-    head_with_default (rev (a :: l))  = head_with_default (rev l).
+Lemma rev_not_nil(l : list (Z*val)):
+  l <> (@nil (Z*val)) -> rev l <> (@nil (Z*val)).
 Proof.
   intros.
   induction l.
-  + contradiction.
-  + 
-    pose proof classic (l2 <> []).
-    destruct H0.
-    - assert (forall l1 : list (Z * val),
-    head_with_default (rev (l1 ++ l2)) = head_with_default (rev l2)).
-      tauto.
-      pose proof H1.
-      specialize (H1 (l1 ++ [a])).
-      specialize (H2 ([a])).
-      assert ([a] ++ l2 = a::l2).
-      list_solve.
-      assert ((l1 ++ [a]) ++ l2 = l1 ++ a :: l2).
-      list_solve.
-      rewrite <- H4. 
-      rewrite <- H3.
-      rewrite H1.
-      rewrite H2.
-      reflexivity. 
-    - assert (l2 = []).
-      tauto.
-      rewrite H1.
-      clear H H0 H1.
-      revert a.
-      induction l1; intros.
-      autorewrite with sublist. reflexivity.
-Admitted.
+  { contradiction. }
+  pose proof classic (l = []).
+  destruct H0.
+  + rewrite H0.
+    unfold rev.
+    autorewrite with sublist.
+    intuition.
+    discriminate H1.
+  + apply IHl in H0.
+    pose proof rev_app_eq l a.
+    rewrite H1.
+    clear H1.
+    remember (rev l) as w.
+    clear IHl H Heqw.
+    intuition.
+    destruct w.
+    - intuition.
+    - discriminate H. 
+Qed.
 
-*)
-
-Lemma tail_ptr_push_front_list_singleton(a:Z*val):
-  forall lp,
-      tail_ptr (lp ++ [a]) = tail_ptr [a].
+Lemma rev_app_eq_val (l: list val):
+forall a : val,
+  rev (a::l) = rev l ++ a :: (@nil val).
 Proof.
-  revert a. induction lp.
-  autorewrite with sublist. reflexivity.
+intros.
+unfold rev at 1.
+assert (rev l = (fix rev (l0 : list val) : list val :=
+match l0 with
+| [] => []
+| x :: l' => rev l' ++ [x]
+end) l).
+unfold rev; reflexivity.
+rewrite <- H.
+reflexivity.
+Qed.
 
-Admitted.
+Lemma rev_not_nil_val(l : list val):
+  l <> (@nil val) -> rev l <> [].
+Proof.
+  intros. induction l.
+  { contradiction. }
+  pose proof classic (l = []).
+  destruct H0.
+  + rewrite H0.
+    unfold rev.
+    autorewrite with sublist.
+    intuition.
+    discriminate H1.
+  + apply IHl in H0.
+    pose proof rev_app_eq_val l a.
+    rewrite H1.
+    clear H1.
+    remember (rev l) as w.
+    clear IHl H Heqw.
+    intuition.
+    destruct w.
+    - intuition.
+    - discriminate H.
+Qed. 
 
-
-
-Lemma tail_ptr_push_front_strong (l: list (Z*val)):
-  forall lp, l <>(@nil (Z*val)) ->
-      tail_ptr(lp ++ l) = tail_ptr l.
+Lemma map_snd_extract(l : list(Z*val)):
+  forall a: (Z*val),
+    map snd (a :: l) = snd(a) :: (map snd l).
 Proof.
   intros.
-  induction l; intros.
-  destruct H. reflexivity.
   pose proof classic (l = []).
-  - destruct H0.
-    rewrite H0.
-    unfold tail_ptr.
-    unfold head_with_default, rev, map, snd.
+  destruct H.
+  + rewrite H.
+    unfold map, snd.
+    reflexivity.
+  + unfold map.
+    reflexivity.
+Qed. 
 
-Admitted.
+Lemma map_snd_not_nil(l : list(Z*val)):
+  l <> [] -> map snd l <> [].
+Proof.
+  intros.
+  induction l. contradiction.
+  unfold map.
+  remember (snd a) as vv.
+  remember ((fix map (l0 : list (Z * val)) : list val :=
+  match l0 with
+  | [] => []
+  | a0 :: t => snd a0 :: map t
+  end) l) as vvvv.
+  intuition.
+  discriminate H0.
+Qed.
 
 Lemma tail_ptr_push_front(l : list (Z*val)):
   forall a,
     l <> (@nil (Z*val)) ->
       tail_ptr(a :: l) = tail_ptr l.
 Proof.
-  (*  李竞翔 (2021/5/21): 
-      我尝试证明: forall l <> [], tail_ptr(a::l)=tail_ptr l.
-      
-      通过对l做归纳，这可以分成两个步骤:
-        1. l = []. 然后就会出现[] <> []这样的东西，用contradiction就结束了
-        2. l = a0::l'. 
-           根据归纳，我们还有这个条件: forall a, l'<>[]->tail_ptr(a::l')=tail_ptr(l') 
-           我们需要证明: tail_ptr(a0::a::l')=tail_ptr(a::l'),
-           左边这里有两个元素，感觉有点进行不下去。
-           我尝试通过对l'是否为空进行讨论来解决这个问题。 
-           如果l'为空，那么直接一通unfold就解决了
-           如果l'不为空，那么我就不知道怎么证了。我的想法大概是，证明：
-             tail_ptr(a0::a::l') = tail_ptr(l') 和 tail_ptr(a::l')=tail_ptr(l')
-           然后再用rewrite完成这个证明. 然而好像做不太到。
-
-      由于前面是因为左边有两个元素而卡住，我尝试加强一下原命题。
-      把往列表l前面添加一个元素，换成添加一个列表。
-      也就是: Lemma tail_ptr_push_front_strong: forall l <> [] tail_ptr(lp++l)=tail_ptr l.
-      同样地，这里我对l做归纳：
-        1. l=[]. 直接contradiction.
-        2. l=a0::l'.
-           对于l'不为空的情况，那么通过归纳的条件，我能够完成证明。
-           但是对于l'为空的情况，我需要证明：
-             tail_ptr(lp++[a0]) = tail_ptr([a0]), 这看起来似乎需要一个新的引理。
-      然后我尝试证明这个新引理，并把它命名为： `tail_ptr_push_front_list_singleton`.
-      但是我在证明这个新引理的时候，我遇到了这个东西：
-        tail_ptr ((a0 :: lp) ++ [a]) = tail_ptr [a].
-      看起来似乎我需要用到 `tail_ptr_push_front_strong`这个引理，
-      然后似乎就变成了这样的情况：(`->`表示依赖于)
-      tail_ptr_push_front ---> tail_ptr_push_front_strong
-                                         |  ^
-                                         |  |
-                                         |  |
-                                         v  |
-                         tail_ptr_push_front_list_singleton
-      大概是哪里搞错了，或者弄复杂了吧...
-      不是很懂，先写下来
-      
-  *)
   intros.
-  revert a.
-  induction l.
-  { contradiction. }
-  intros.
-  pose proof tail_ptr_push_front_strong.
-  specialize (H0 l [a]).
-  
-Admitted.
+  induction (rev l).
+  + unfold tail_ptr.
+    pose proof map_snd_extract l a.
+    rewrite H0.
+    pose proof map_snd_not_nil l.
+    apply H1 in H. clear H1.
+    remember (map snd l) as msl.
+    remember (snd a) as sa.
+    pose proof rev_app_eq_val msl sa.
+    rewrite H1.
+    remember (rev msl) as rmsl.
+    unfold head_with_default.
+    assert (rmsl <> []).
+    pose proof rev_not_nil_val msl.
+    apply H2 in H. rewrite <- Heqrmsl in H.
+    exact H.
+    destruct rmsl.
+    contradiction.
+    reflexivity.
+  + exact IHl0.
+Qed.
   
 Lemma dlrep_head_ptr:
   forall l head tail,
@@ -1021,8 +1041,31 @@ Proof.
   Intros pv nx.
   pose proof classic (l1<>[]).
   destruct H.
-  + forward. 
-Admitted.
+  + forward.
+    - pose proof dlrep_local_facts_tail_not_empty l1 head pv nullval p.
+      apply H0 in H.
+      sep_apply H.
+      entailer!.
+    - forward.
+      sep_apply dlrep_tail_ptr_not_empty.
+      entailer!.
+      unfold list_rep_with_cursor.
+      Exists head tail .
+      sep_apply elem_middle_dlrep.
+      entailer!.
+  + assert (l1 = []).
+    tauto.
+    rewrite H0.
+    forward.
+    sep_apply dlrep_local_facts_tail_empty.
+    entailer!.
+    forward.
+    sep_apply dlrep_tail_ptr_empty.
+    sep_apply elem_middle_dlrep.
+    unfold list_rep_with_cursor. 
+    Exists head tail.
+    entailer!.
+Qed.
 
 (* get_val *)
 Definition get_val_spec :=
@@ -1076,12 +1119,12 @@ Definition insert_before_spec :=
     SEP (list_rep_with_cursor (l1 ++ [(v', p')] ++ [(v, p)] ++ l2) x).
 
 Definition Gprog_insert_before : funspecs :=
-            ltac:(with_library prog [insert_before_spec]).
+            ltac:(with_library prog [insert_before_spec; mallocN_spec]).
 
 Theorem body_insert_before: semax_body Vprog Gprog_insert_before
                               f_insert_before insert_before_spec.
 Proof.
-
+  
 Admitted.
 
 (* insert_after *)
@@ -1099,7 +1142,7 @@ Definition insert_after_spec :=
     SEP (list_rep_with_cursor (l1 ++ [(v', p')] ++ [(v, p)] ++ l2) x).
 
 Definition Gprog_insert_after : funspecs :=
-            ltac:(with_library prog [insert_after_spec]).
+            ltac:(with_library prog [insert_after_spec; mallocN_spec]).
 
 Theorem body_insert_after: semax_body Vprog Gprog_insert_after
                               f_insert_after insert_after_spec.
