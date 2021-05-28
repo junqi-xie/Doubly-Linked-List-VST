@@ -89,8 +89,7 @@ Proof.
     entailer!.
 Qed.
 
-Lemma elem_left_dlrep:
-  forall l x p head tail prev next next',
+Lemma elem_left_dlrep (l: list (Z*val)) (x:Z) (p head tail prev next next' : val):
     !! (p = head) && emp * 
     dlrep l next' tail p next *
     data_at Tsh t_struct_node (Vint (Int.repr x), (prev, next')) p |--
@@ -309,9 +308,9 @@ Proof.
 Qed.
 
 Lemma dlrep_local_facts_head:
-  forall l head tail,
-    dlrep l head tail nullval nullval |--
-    !! (is_pointer_or_null head) && emp * dlrep l head tail nullval nullval.
+  forall l head tail prev,
+    dlrep l head tail prev nullval |--
+    !! (is_pointer_or_null head) && emp * dlrep l head tail prev nullval.
 Proof.
   intros.
   destruct l.
@@ -332,7 +331,7 @@ Proof.
   intros. 
   unfold dlrep. 
   entailer!.
-Qed.
+Qed. 
 
 Lemma dlrep_local_facts_head_not_empty (l: list (Z * val)):
   forall head tail prev next, 
@@ -772,48 +771,62 @@ Proof.
   sep_apply dlrep_local_facts_head.
   entailer!.
   unfold LOOP_BODY, abbreviate.
-  Print memory_block.
-  Print List.length.
-  Print Datatypes.length.
-
-  (*
-    设：原来的双向链表可以用dlrep l0 head tail nullval nullval表示；
-    再设：l1为已经被free掉的元素构成的列表，l2为还没有被free掉的元素构成的列表
-    则有：l0 = l1 ++ l2.
-  
-    循环不变量：
-      PROP: l0 = l1 ++ l2.
-      SEP:
-        首先是局部变量p: data_at Tsh t_struct_list (head, tail) p
-        然后是剩下的(还没有被释放的)链表：dlrep l2 head' tail nullval nullval.
-        被释放掉的部分，则表现为一个memory block，大小为：(结构体的size)*length(l1), 起始位置为：head
-  *)
   forward_while(
-    EX l1 l2: list (Z*val),
-    EX head': val,
-    PROP (l0 = l1 ++ l2)
+    EX head' tail' prev': val,
+    EX l2 : list (Z*val),
+    PROP ()
     LOCAL (temp _tmp head'; temp _l p)
-    SEP ( (dlrep l2 head' tail nullval nullval) *
-           data_at Tsh t_struct_list (head, tail) p *
-          (memory_block Tsh (((sizeof(Tstruct _node noattr))%expr) * (Z.of_nat (List.length l1))) head)  
-    )
+    SEP ( (dlrep l2 head' tail' prev' nullval) *
+           data_at Tsh t_struct_list (head', tail) p )
   )%assert.
-  + Exists (@nil (Z*val)) (l0) head.
-    unfold Datatypes.length.
-    assert (sizeof (Tstruct _node noattr) * Z.of_nat 0 = 0).
-    lia.
-    rewrite H0. 
-    autorewrite with sublist.
-    pose proof memory_block_zero Tsh head. rewrite H1.
+  { 
+    Exists head tail nullval l0.
     entailer!.
-    (* isptr head: ??? *)
-    admit.
-  + entailer!.
-    simpl.
-    admit.
-  + admit. 
-  (* TODO: I dont know whether this is correct or not :( . *)
-Admitted.
+  }
+  {
+    destruct l2. unfold dlrep. entailer!.
+    destruct p0. sep_apply dlrep_left_elem. Intros next'. entailer!.
+  }
+  {
+    destruct l2.
+    { 
+      unfold dlrep.
+      assert_PROP(head'=nullval).
+      entailer!.
+      contradiction.
+    }
+    destruct p0.
+    sep_apply dlrep_left_elem.
+    Intros next'. subst.
+    forward.
+    {
+      sep_apply dlrep_local_facts_head.
+      entailer!.
+    }
+    forward.
+    unfold MORE_COMMANDS, abbreviate.
+    sep_apply data_at_memory_block.
+
+    forward_call ((head'),((sizeof(Tstruct _node noattr))%expr)).
+    forward.
+    Exists (next', tail', head', l2).
+    unfold fst, snd.
+    entailer!.
+  }
+      
+  + sep_apply data_at_memory_block.
+    forward_call (p,((sizeof(Tstruct _list noattr))%expr)).
+    entailer!.
+    destruct l2.
+    unfold dlrep.
+    entailer!.
+    unfold dlrep. fold dlrep. 
+    destruct p0. Intros head'.
+    rewrite <- H.
+    assert_PROP (v <> nullval).
+    entailer!.
+    contradiction.
+Qed.
 
 (* begin *)
 Definition begin_spec :=
@@ -1124,7 +1137,53 @@ Definition Gprog_insert_before : funspecs :=
 Theorem body_insert_before: semax_body Vprog Gprog_insert_before
                               f_insert_before insert_before_spec.
 Proof.
-  
+  start_function.
+  unfold list_rep_with_cursor.
+  Intros head tail.
+  sep_apply dlrep_middle_elem.
+  Intros prev' next'.
+  forward_call (sizeof(Tstruct _node noattr))%expr.
+  { 
+    simpl.
+    rep_lia.
+  }
+  Intros vert.
+  pose proof memory_block_data_at_ Tsh (Tstruct _node noattr) vert.
+  pose proof malloc_compatible_field_compatible. 
+  assert_PROP (complete_legal_cosu_type (Tstruct _node noattr) = true).
+  { entailer!. }
+
+  assert_PROP (natural_aligned natural_alignment (Tstruct _node noattr) = true).
+  { entailer!. }
+
+  specialize (H1 _ (Tstruct _node noattr) vert).
+
+  assert (memory_block Tsh (sizeof (Tstruct _node noattr)) vert =
+      data_at_ Tsh (Tstruct _node noattr) vert).
+  { tauto. }
+
+  rewrite H4.
+  clear H H0 H1 H2 H3 H4.
+  forward.
+  forward.
+  unfold t_struct_node.
+  forward.
+  pose proof classic (l1 <> []).
+  destruct H.
+  + sep_apply dlrep_local_facts_tail_not_empty. 
+    entailer!.
+  + assert (l1 = []). 
+    tauto.
+    rewrite H0.
+    sep_apply dlrep_local_facts_tail_empty.
+    entailer!.
+  + forward.
+    forward.
+    forward.
+    - entailer!.
+      admit.
+      (* TODO: 似乎少了个引理... 不过我不太会证... *) 
+    - forward_if.
 Admitted.
 
 (* insert_after *)
@@ -1165,12 +1224,88 @@ Definition merge_spec :=
     SEP (list_rep (l1 ++ l2) p1).
 
 Definition Gprog_merge : funspecs :=
-            ltac:(with_library prog [merge_spec]).
+            ltac:(with_library prog [merge_spec; freeN_spec]).
 
 Theorem body_merge: semax_body Vprog Gprog_merge
                       f_merge merge_spec.
 Proof.
+  start_function.
+  unfold list_rep.
+  Intros vl1 vl2.
+  unfold list_rep_with_cursor.
+  Intros head1 tail1 head2 tail2.
+  forward.
+  {
+    pose proof dlrep_local_facts_head vl2 head2 tail2 nullval.
+    sep_apply H1.
+    entailer!.
+  }
+  forward_if.
+  {
+    destruct vl2.
+    + 
+      unfold dlrep at 2.
+      entailer!.
+    + destruct p.
+      sep_apply dlrep_left_elem.
+      Intros next'.
+      entailer!.
+  }
+  {
+    forward.
+    forward.
+    pose proof classic (vl1 <> []).
+    destruct H2.
+    + sep_apply dlrep_local_facts_tail_not_empty.
+      entailer!.
+    + assert (vl1=[]). tauto. rewrite H3.
+      sep_apply dlrep_local_facts_tail_empty.
+      entailer!.
+    + destruct vl2.
+      -
+        unfold dlrep at 2.
+        assert_PROP(head2=nullval).
+        entailer!.
+        contradiction.
+      - destruct p.
+        sep_apply dlrep_left_elem.
+        Intros next'.
+        subst.
+        forward.
+        forward.
+        admit.
+        (* TODO: 来不动了 后条件下次再写 *)
+  } 
+  subst.
+  destruct vl2.
+  + unfold dlrep at 2.
 
+    assert_PROP(tail2=nullval).
+    entailer!.
+    rewrite H.
+    Search memory_block.
+
+    assert (
+      data_at Tsh t_struct_list (nullval, nullval) p2 |--
+      memory_block Tsh (sizeof t_struct_list) p2
+    ).
+
+    sep_apply data_at_memory_block. entailer!.
+    sep_apply H0.
+
+    forward_call (p2, (sizeof(Tstruct _list noattr))%expr).
+    forward.
+    unfold list_rep.
+    Exists vl1.
+    autorewrite with sublist.
+    unfold list_rep_with_cursor.
+    Exists head1 tail1.
+    entailer!.
+  + destruct p. sep_apply dlrep_left_elem.
+    Intros next'.
+    assert_PROP (v <> nullval).
+    entailer!.
+    contradiction.
 Admitted.
 
 (** Functions to be verified. *)
@@ -1208,13 +1343,11 @@ Admitted.
 (*
   开始：dlrep l0 p q nullval nullval
   
-
   while (p != q)
   {
       s = s + get_val(p);
       p = next(p);
   }
-
   口胡出来的循环不变量：
     EX prev l1 l2 begin,
     PROP:
@@ -1230,7 +1363,6 @@ Admitted.
     |------------------------  l1 ----------------------------------|   |-------l2--------|
     那么s的值就是l1的所有元素的和，
     l也显然是l1 ++ l2
-
   不过这样写好像不太容易做... 还涉及到了一个sum_list函数，不过
   我想不到有什么能避开这样的操作的方法。
 *)
@@ -1250,7 +1382,6 @@ Definition delta_spec :=
     SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x).
 
 (* 此处 RETURN 中的参数表达有一些问题，不过意思应当是明确的。不知如何在 VST 中对这一性质进行描述。 *)
-
 Definition Gprog_delta : funspecs :=
             ltac:(with_library prog [delta_spec]).
 
@@ -1281,7 +1412,6 @@ Admitted.
     l1 表示了 双向链表从begin到r的前面一个(这里定义成了prev)
     l2 表示了 双向链表从r到结尾
     这些里面涉及到的"EX"应该可以用Intros提到外面去
-
     后一个循环不变量：
       EX prev l2l l2r begin next_r, 
       PROP: 
@@ -1296,9 +1426,6 @@ Admitted.
       此处 l1含义同上
       l2可以进一步分为l2l和l2r: 前者是从r到p的前一个，后者是p到q
       然后s的值也就是l1的所有元素和再减去l2l的所有元素的和了。
-
     同样的，感觉不太容易进行下去，可能整个思路都还需要一些修改..
-
 *)
-
 (* 2021-04-27 01:16 *)
