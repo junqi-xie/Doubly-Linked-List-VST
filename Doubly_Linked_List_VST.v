@@ -406,6 +406,32 @@ Proof.
       entailer!.
 Qed.
 
+Lemma dlrep_null_tail(l : list (Z*val)):
+  forall head,
+    dlrep l head nullval nullval nullval |-- (!! (l = [] /\ head=nullval)).
+Proof.
+  intros.
+  pose proof classic (l <> []).
+  destruct H.
+  + pose proof exists_last.
+    specialize (X _ l).
+    apply X in H.
+    clear X.
+    destruct H. destruct s.
+    rewrite e.
+    destruct x0.
+    sep_apply dlrep_right_elem.
+    Intros p'.
+    subst.
+    entailer!.
+  + assert (l=[]).
+    tauto.
+    rewrite H0.
+    unfold dlrep.
+    entailer!.
+Qed.
+ 
+
 (** Memory representation of a mathematical list. Cursors mean places to
     insert. *)
 Definition list_rep_with_cursor (l : list (Z * val)) (p : val) : mpred :=
@@ -429,7 +455,8 @@ Definition head_ptr (l : list (Z * val)): val :=
   
 Definition tail_ptr (l : list (Z * val)): val :=
   head_with_default (rev (map snd l)) nullval.
-  Lemma rev_app_eq (l: list (Z*val)):
+
+Lemma rev_app_eq (l: list (Z*val)):
   forall a : (Z*val),
     rev (a::l) = rev l ++ a :: (@nil (Z*val)).
 Proof.
@@ -474,16 +501,18 @@ Lemma rev_app_eq_val (l: list val):
 forall a : val,
   rev (a::l) = rev l ++ a :: (@nil val).
 Proof.
-intros.
-unfold rev at 1.
-assert (rev l = (fix rev (l0 : list val) : list val :=
-match l0 with
-| [] => []
-| x :: l' => rev l' ++ [x]
-end) l).
-unfold rev; reflexivity.
-rewrite <- H.
-reflexivity.
+  intros.
+  unfold rev at 1.
+  assert (rev l = 
+    (fix rev (l0 : list val) : list val :=
+      match l0 with
+        | [] => []
+        | x :: l' => rev l' ++ [x]
+     end) l
+  ).
+  unfold rev; reflexivity.
+  rewrite <- H.
+  reflexivity.
 Qed.
 
 Lemma rev_not_nil_val(l : list val):
@@ -523,6 +552,15 @@ Proof.
   + unfold map.
     reflexivity.
 Qed. 
+
+Lemma map_fst_extract_list (l1 l2 : list(Z*val)):
+  map fst (l1 ++ l2) = map fst l1 ++ map fst l2.
+Proof.
+  destruct l2.
+  autorewrite with sublist.
+  reflexivity.
+  unfold fst.
+Abort.
 
 Lemma map_snd_not_nil(l : list(Z*val)):
   l <> [] -> map snd l <> [].
@@ -1225,6 +1263,7 @@ Definition merge_spec :=
 
 Definition Gprog_merge : funspecs :=
             ltac:(with_library prog [merge_spec; freeN_spec]).
+            
 
 Theorem body_merge: semax_body Vprog Gprog_merge
                       f_merge merge_spec.
@@ -1273,8 +1312,129 @@ Proof.
         subst.
         forward.
         forward.
-        admit.
-        (* TODO: 来不动了 后条件下次再写 *)
+        forward_if(
+          EX newL1Head  : val,
+          PROP()
+          LOCAL(temp _l1 p1; temp _l2 p2)
+          SEP(
+            data_at Tsh t_struct_list (newL1Head, tail1) p1;
+            dlrep (vl1++[(z,head2)]++vl2) newL1Head tail2 nullval nullval;
+            data_at Tsh t_struct_list (head2, tail2) p2)
+        )%assert.
+        {
+          pose proof classic (vl1 = []).
+          destruct H7.
+          * rewrite H7.
+            sep_apply dlrep_local_facts_tail_empty.
+            unfold  dlrep at 1.
+            entailer!.
+          * pose proof exists_last.
+            rename X into eL.
+            specialize (eL _ vl1).
+            apply eL in H7.
+            destruct H7. destruct s.
+            rewrite e.
+            destruct x0.
+            sep_apply dlrep_right_elem.
+            Intros Ooo0oooOOoOOoo000oOooOOOoooOOOoO00OO'0'0''oO0__0oo___OO.
+            entailer!.   
+        }
+        * forward.
+          forward.
+          pose proof classic (vl1 = []).
+          destruct H0.
+          ++ rewrite H0. unfold dlrep at 2.
+             assert_PROP (tail1=nullval).
+             entailer!.
+             contradiction.
+          ++ pose proof exists_last.
+             rename X into eL.
+             specialize (eL _ vl1).
+             apply eL in H0. 
+             destruct H0. destruct s. destruct x0. rewrite e.
+             sep_apply dlrep_right_elem.
+             Intros p'. subst. 
+             forward.
+             Exists head1.
+             entailer!.
+             pose proof elem_right_dlrep x z0 tail1 head1 tail1 nullval head2 p'.
+             assert_PROP(
+              dlrep x head1 p' nullval tail1 *
+              data_at Tsh t_struct_node (Vint (Int.repr z0), (p', head2)) tail1 |--
+              !! (tail1 = tail1) && emp * dlrep x head1 p' nullval tail1 *
+              data_at Tsh t_struct_node (Vint (Int.repr z0), (p', head2)) tail1
+             ).
+             entailer!.
+             sep_apply H10.
+             sep_apply H9.
+             reflexivity.
+             entailer!.
+             remember (x ++ [(z0, tail1)]) as vl3.
+             pose proof elem_middle_dlrep vl3 vl2 z 
+                        head2 head1 tail2 nullval nullval tail1 next'.
+             sep_apply H11.
+             entailer!.
+        * forward.
+          forward.
+          Exists head2.
+          rewrite H.
+          entailer!.
+          assert_PROP(vl1=[]).
+          { sep_apply dlrep_null_tail; entailer!. }
+          rewrite H.
+          autorewrite with sublist.
+          unfold dlrep at 2.
+          pose proof elem_left_dlrep.
+          pose proof elem_left_dlrep vl2 z head2 head2 tail2 nullval nullval next'.
+          sep_apply H8.
+          reflexivity.
+          assert ( (z,head2)::vl2 = [(z,head2)]++vl2).
+          list_solve.
+          rewrite H9.
+          entailer!.
+        * Intros newL1Head. 
+          forward.
+          assert (vl1 ++ [(z,head2)] ++ vl2 = vl1 ++ (z,head2) :: vl2).
+          list_solve.
+          rewrite H.
+          sep_apply dlrep_middle_elem.
+          Intros prev' next'0.
+          pose proof classic (vl2 = []).
+          destruct H0.
+          {
+            rewrite H0.
+            unfold dlrep at 2.
+            entailer!.
+          }
+          {
+            pose proof exists_last.
+            specialize (X _ vl2).
+            apply X in H0. destruct H0. destruct s.
+            rewrite e.
+            destruct x0.
+            sep_apply dlrep_right_elem.
+            Intros p'. subst.
+            entailer!.
+          }
+          forward.
+          pose proof data_at_memory_block.
+          specialize (H Tsh t_struct_list (head2, tail2) p2).
+          sep_apply H.
+          forward_call( p2, (sizeof(Tstruct _list noattr))%expr ).
+          entailer!.
+          unfold list_rep.
+          unfold list_rep_with_cursor.
+          Exists (vl1 ++ [(z,head2)] ++ vl2).
+          Exists (newL1Head) (tail2).
+          entailer!.
+          pose proof map_app.
+          specialize (H3 _ _ (fst) vl1 ([(z,head2)]++vl2)).
+          rewrite H3.
+          pose proof map_app.
+          specialize (H4 _ _ fst [(z,head2)] vl2).
+          rewrite H4.
+          unfold map at 2, fst at 2.
+          list_solve.
   } 
   subst.
   destruct vl2.
@@ -1283,7 +1443,6 @@ Proof.
     assert_PROP(tail2=nullval).
     entailer!.
     rewrite H.
-    Search memory_block.
 
     assert (
       data_at Tsh t_struct_list (nullval, nullval) p2 |--
@@ -1306,7 +1465,7 @@ Proof.
     assert_PROP (v <> nullval).
     entailer!.
     contradiction.
-Admitted.
+Qed.
 
 (** Functions to be verified. *)
 
