@@ -128,13 +128,13 @@ Definition f_list_new := {|
       (Efield
         (Ederef (Etempvar _l (tptr (Tstruct _list noattr)))
           (Tstruct _list noattr)) _head (tptr (Tstruct _node noattr)))
-      (Econst_int (Int.repr 0) tint))
+      (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid)))
     (Ssequence
       (Sassign
         (Efield
           (Ederef (Etempvar _l (tptr (Tstruct _list noattr)))
             (Tstruct _list noattr)) _tail (tptr (Tstruct _node noattr)))
-        (Econst_int (Int.repr 0) tint))
+        (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid)))
       (Sreturn (Some (Etempvar _l (tptr (Tstruct _list noattr))))))))
 |}.
 
@@ -205,7 +205,7 @@ Definition f_end := {|
   fn_vars := nil;
   fn_temps := nil;
   fn_body :=
-(Sreturn (Some (Econst_int (Int.repr 0) tint)))
+(Sreturn (Some (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid))))
 |}.
 
 Definition f_rbegin := {|
@@ -230,7 +230,7 @@ Definition f_rend := {|
   fn_vars := nil;
   fn_temps := nil;
   fn_body :=
-(Sreturn (Some (Econst_int (Int.repr 0) tint)))
+(Sreturn (Some (Ecast (Econst_int (Int.repr 0) tint) (tptr tvoid))))
 |}.
 
 Definition f_next := {|
@@ -328,7 +328,7 @@ Definition f_insert_before := {|
               (Ssequence
                 (Sset _t'3
                   (Efield
-                    (Ederef (Etempvar _p (tptr (Tstruct _node noattr)))
+                    (Ederef (Etempvar _nd (tptr (Tstruct _node noattr)))
                       (Tstruct _node noattr)) _prev
                     (tptr (Tstruct _node noattr))))
                 (Sassign
@@ -404,7 +404,7 @@ Definition f_insert_after := {|
               (Ssequence
                 (Sset _t'3
                   (Efield
-                    (Ederef (Etempvar _p (tptr (Tstruct _node noattr)))
+                    (Ederef (Etempvar _nd (tptr (Tstruct _node noattr)))
                       (Tstruct _node noattr)) _next
                     (tptr (Tstruct _node noattr))))
                 (Sassign
@@ -951,4 +951,3 @@ Definition prog : Clight.program :=
   mkprogram composites global_definitions public_idents _main Logic.I.
 
 
-(* 2021-04-27 01:16 *)
