@@ -1676,6 +1676,52 @@
 					entailer!.
 					assert (l2 = []). admit.
 					rewrite H6.
+					unfold dlrep at 2. unfold list_rep.
+					Exists (l1 ++ [(v,p)] ++ [(v',vert)]).
+					entailer!.
+					{ apply map_app. }
+					unfold list_rep_with_cursor.
+					Exists head vert.
+					pose proof elem_right_dlrep l1 v p head p. sep_apply H6. reflexivity.
+					cancel.
+					pose proof elem_right_dlrep (l1 ++ [(v,p)]) v' vert head vert. fold t_struct_node.
+					sep_apply H7. reflexivity.
+					assert(((l1 ++ [(v, p)]) ++ [(v', vert)])=(l1 ++ [(v, p)] ++ [(v', vert)])).
+					list_solve. rewrite H8. entailer!.
+				+ forward.
+					assert (l2<>[]). admit.
+					destruct l2; [congruence | destruct p0].
+					sep_apply dlrep_left_elem. Intros next'. subst.
+					forward.
+					unfold list_rep. Exists (l1 ++ [(v,p)]++[(v',vert)]++[(z,nx)]++l2).
+					entailer!.
+					{
+						pose proof map_app.
+		
+						specialize  (H10 _ _ fst (l1 ++ [(v, p)] ++ [(v', vert)] ++ [(z, nx)]) l2).
+						assert ((l1 ++ [(v, p)] ++ [(v', vert)] ++ [(z, nx)] ++ l2)=((l1 ++ [(v, p)] ++ [(v', vert)] ++ [(z, nx)]) ++ l2)).
+						list_solve. rewrite H11,H10; clear H11 H10.
+						pose proof map_app.
+						assert (l1 ++ [(v,p)]++[(v',vert)]++[(z,nx)] = l1 ++ [(v,p);(v',vert);(z,nx)]). list_solve.
+						rewrite H11.
+						specialize (H10 _ _ fst l1 [(v, p); (v', vert); (z, nx)]).
+						rewrite H10. simpl.
+						list_solve. 
+					}
+					unfold list_rep_with_cursor.
+					Exists head tail.
+					cancel.
+					pose proof elem_right_dlrep l1 v p head p. sep_apply H10; clear H10. reflexivity.
+					cancel.
+					pose proof elem_right_dlrep (l1++ [(v,p)]) v' vert head vert nullval . 
+					sep_apply H10. reflexivity. cancel.
+					pose proof elem_middle_dlrep (l1 ++ [(v,p)] ++ [(v',vert)]) l2 z nx head tail nullval nullval vert next'. 
+					assert (l1 ++ [(v,p)] ++ [(v',vert)] = (l1 ++ [(v,p)]) ++ [(v',vert)]).
+					list_solve. rewrite <-H12.
+					sep_apply H11. entailer!.
+					assert(((l1 ++ [(v, p)] ++ [(v', vert)]) ++ (z, nx) :: l2)=(l1 ++ [(v, p)] ++ [(v', vert)] ++ [(z, nx)] ++ l2)).
+					list_solve. rewrite <- H13.
+					entailer!.
 			Admitted.
 			
 			(* merge *)
