@@ -22,7 +22,7 @@
     You may change the definition below if your version is better. *)
 
 Require Import VST.floyd.proofauto.
-Require Import EV.AuxilaryTac.
+Require Import EV.AuxiliaryTac.
 Require Import EV.dlinklist.
 
 Instance CompSpecs : compspecs. make_compspecs prog. Defined.
