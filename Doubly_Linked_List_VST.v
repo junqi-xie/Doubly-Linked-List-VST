@@ -33,7 +33,7 @@ Definition t_struct_list : type := Tstruct _list noattr.
 
 (** Concrete memory representation of a dlinklist, which does not only include
   value but also include addresses. *)
-    
+
 Fixpoint dlrep (l : list (Z * val)) (head tail prev next : val) : mpred :=
   match l with
   | (x, p) :: l' =>
@@ -138,30 +138,6 @@ Proof.
     Exists p' head'.
     entailer!.
 Qed.
-
-Lemma dlrep_head_neq_next:
-  forall l tail prev hn, 
-    dlrep l hn tail prev hn |-- !!(l = []) && emp * dlrep l hn tail prev hn .
-Proof.
-  induction l.
-  {
-    unfold dlrep.
-    intros.
-    entailer!.
-  }
-  intros.
-
-  unfold dlrep.
-  fold dlrep.
-  destruct a.
-  Intros head'. Exists head'. subst.
-  unfold dlrep  at 1.
-  destruct l.
-  {
-    unfold dlrep.
-    entailer!.
-  }
-Admitted.
 
 Lemma elem_right_dlrep:
   forall l x p head tail prev next prev',
@@ -429,7 +405,7 @@ Proof.
     - assert (l = []).
       tauto.
       rewrite H2.
-      unfold dlrep. 
+      unfold dlrep.
       entailer!.
 Qed.
 
@@ -451,7 +427,7 @@ Proof.
     Intros p'.
     subst.
     entailer!.
-  + assert (l=[]).
+  + assert (l = []).
     tauto.
     rewrite H0.
     unfold dlrep.
@@ -628,7 +604,7 @@ Proof.
     reflexivity.
   + exact IHl0.
 Qed.
-  
+
 Lemma dlrep_head_ptr:
   forall l head tail,
     dlrep l head tail nullval nullval |--
@@ -708,19 +684,7 @@ Proof.
       subst.
       entailer!.
 Qed.
-            
-Lemma dlrep_head_eq_next:
-  forall l head tail prev,
-    dlrep l head tail prev head |-- emp.
-Proof.
-  induction l.
-  unfold dlrep. entailer!.
-  destruct a.
-  intros.
-  sep_apply dlrep_left_elem.
-  Intros next'. subst.
-Admitted.
-          
+
 (** Specifications about memory operations *)
 
 (* mallocN *)
@@ -771,7 +735,7 @@ Theorem body_list_new: semax_body Vprog Gprog_list_new
                           f_list_new list_new_spec.
 Proof.
   start_function.
-  
+
   forward_call ((sizeof (Tstruct _list noattr))%expr).
   {
     simpl.
@@ -830,7 +794,7 @@ Definition Gprog_list_free : funspecs :=
 Theorem body_list_free: semax_body Vprog Gprog_list_free
                           f_list_free list_free_spec.
 Proof.
-  start_function. 
+  start_function.
 
   unfold list_rep, list_rep_with_cursor.
   Intros l0 head tail.
@@ -874,13 +838,13 @@ Proof.
     unfold MORE_COMMANDS, abbreviate.
     sep_apply data_at_memory_block.
 
-    forward_call ((head'),((sizeof(Tstruct _node noattr))%expr)).
+    forward_call ((head'), ((sizeof(Tstruct _node noattr))%expr)).
     forward.
     Exists (next', tail', head', l2).
     unfold fst, snd.
     entailer!.
   }
-      
+
   + sep_apply data_at_memory_block.
     forward_call (p,((sizeof(Tstruct _list noattr))%expr)).
     entailer!.
@@ -995,14 +959,13 @@ Proof.
     Exists head tail.
     pose proof classic (l <> []).
     destruct H1.
-    -
-      sep_apply dlrep_tail_ptr_not_empty.
+    - sep_apply dlrep_tail_ptr_not_empty.
       entailer!.
     - assert (l = []).
       tauto.
       rewrite H2.
       sep_apply dlrep_tail_ptr_empty.
-      entailer!.   
+      entailer!.
 Qed.
 
 (* rend *)
@@ -1035,7 +998,7 @@ Proof.
 Qed.
 
 (* next *)
-Definition next_spec :=
+(* Definition next_spec :=
   DECLARE _next
   WITH l1 : list (Z * val), v: Z, p: val, l2 : list (Z * val), x: val
   PRE  [ tptr t_struct_node ]
@@ -1046,9 +1009,9 @@ Definition next_spec :=
   POST [ tptr t_struct_node ]
     PROP ()
     RETURN (head_ptr l2)
-    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x).
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x). *)
 
-Definition stronger_next_spec :=
+Definition next_spec :=
   DECLARE _next
   WITH l1 : list (Z * val), v: Z, p: val, l2 : list (Z * val), x: val,
         prev : val,  head: val, tail: val, next: val
@@ -1071,8 +1034,8 @@ Definition stronger_next_spec :=
 Definition Gprog_next : funspecs :=
             ltac:(with_library prog [next_spec]).
 
-Theorem body_stronger_next: semax_body Vprog ltac:(with_library prog [stronger_next_spec]) 
-                            f_next stronger_next_spec.
+Theorem body_next: semax_body Vprog Gprog_next
+                      f_next next_spec.
 Proof.
   start_function.
   forward.
@@ -1081,53 +1044,14 @@ Proof.
   entailer!.
   forward.
   destruct l2.
-  unfold dlrep at 2. unfold head_ptr, head_with_default, map, snd. entailer!.
-  destruct p0. unfold dlrep; fold dlrep. unfold head_ptr, head_with_default, map, snd. Intros k.
+  unfold dlrep at 2.
+  unfold head_ptr, head_with_default, map, snd.
   entailer!.
-Qed.
-
-Theorem body_next: semax_body Vprog Gprog_next
-                      f_next next_spec.
-Proof.
-  start_function.
-  unfold list_rep_with_cursor.
-  Intros head tail.
-  sep_apply dlrep_middle_elem.
-  Intros pv nx.
-  forward.
-  pose proof classic (l2 <> []).
-  destruct H.
-  + pose proof dlrep_local_facts_head_not_empty l2 nx tail p nullval.
-    sep_apply H0. 
-    entailer!.
-  + assert (l2 = []).
-    tauto.
-    rewrite H0.
-    unfold dlrep at 2.
-    entailer!.
-  + forward.
-    unfold list_rep_with_cursor.
-    Exists head tail.
-    pose proof classic (l2 <> []).
-    destruct H3.
-    - pose proof dlrep_head_ptr_not_empty l2 nx tail p nullval. intuition.
-      sep_apply H5.
-      cancel. 
-      pose proof elem_middle_dlrep.
-      specialize (H4 l1 l2 v p head tail nullval nullval pv nx).
-      sep_apply H4.
-      entailer!.
-    - assert (l2 = []).
-      tauto.
-      rewrite H4.
-      unfold dlrep at 2.
-      cancel.
-      entailer!.
-      pose proof elem_right_dlrep.
-      specialize (H4 l1 v p head p nullval nullval pv).
-      sep_apply H4.
-      reflexivity.
-      entailer!.
+  destruct p0.
+  unfold dlrep; fold dlrep.
+  unfold head_ptr, head_with_default, map, snd.
+  Intros k.
+  entailer!.
 Qed.
 
 (* rnext *)
@@ -1155,7 +1079,7 @@ Proof.
   Intros head tail.
   sep_apply dlrep_middle_elem.
   Intros pv nx.
-  pose proof classic (l1<>[]).
+  pose proof classic (l1 <> []).
   destruct H.
   + forward.
     - pose proof dlrep_local_facts_tail_not_empty l1 head pv nullval p.
@@ -1184,7 +1108,7 @@ Proof.
 Qed.
 
 (* get_val *)
-Definition get_val_spec :=
+(* Definition get_val_spec :=
   DECLARE _get_val
   WITH l1 : list (Z * val), v: Z, p: val, l2 : list (Z * val), x: val
   PRE  [ tptr t_struct_node ]
@@ -1195,9 +1119,9 @@ Definition get_val_spec :=
   POST [ tuint ]
     PROP ()
     RETURN (Vint (Int.repr v))
-    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x).
+    SEP (list_rep_with_cursor (l1 ++ [(v, p)] ++ l2) x). *)
 
-Definition stronger_get_val_spec := 
+Definition get_val_spec := 
   DECLARE _get_val
   WITH l1 : list (Z * val), v: Z, p: val, l2 : list (Z * val), x: val,
         prev : val,  head: val, tail: val, next: val
@@ -1220,32 +1144,12 @@ Definition stronger_get_val_spec :=
 Definition Gprog_get_val : funspecs :=
             ltac:(with_library prog [get_val_spec]).
 
-Theorem body_stronger_get_val: semax_body Vprog ltac:(with_library prog [stronger_get_val_spec])
-                                f_get_val stronger_get_val_spec.
-Proof.
-  start_function.
-  forward.
-  forward.
-Qed.
-
 Theorem body_get_val: semax_body Vprog Gprog_get_val
                         f_get_val get_val_spec.
 Proof.
   start_function.
-  unfold MORE_COMMANDS, abbreviate.
-  unfold list_rep_with_cursor.
-  Intros head tail.
-  unfold dlrep. fold dlrep.
-  pose proof dlrep_middle_elem.
-  specialize (H l1 v p l2 head tail nullval nullval).
-  sep_apply H.
-  Intros prev next.
   forward.
   forward.
-  unfold list_rep_with_cursor.
-  Exists head tail.
-  sep_apply elem_middle_dlrep.
-  entailer!.
 Qed.
 
 (* insert_before *)
@@ -1266,8 +1170,8 @@ Definition insert_before_spec :=
 Definition Gprog_insert_before : funspecs :=
             ltac:(with_library prog [insert_before_spec; mallocN_spec]).
 
-            Theorem body_insert_before: semax_body Vprog Gprog_insert_before
-            f_insert_before insert_before_spec.
+Theorem body_insert_before: semax_body Vprog Gprog_insert_before
+                              f_insert_before insert_before_spec.
 Proof.
   start_function.
   unfold list_rep_with_cursor.
@@ -1306,14 +1210,14 @@ Proof.
     + sep_apply dlrep_local_facts_tail_not_empty.
       entailer!.
   }
-
+  
   forward.
   forward.
   forward.
   {
     destruct l1.
     unfold dlrep at 1.
-
+    
     entailer!.
     destruct p0.
     sep_apply dlrep_left_elem .
@@ -1349,15 +1253,15 @@ Proof.
   autorewrite with sublist.
   unfold dlrep at 2.
   entailer!.
-  unfold list_rep.    
+  unfold list_rep.
   autorewrite with sublist.
   Exists ([(v',vert)]++[(v,p)]++l2).
   entailer!.
   unfold list_rep_with_cursor.
   Exists vert tail.
-  assert ([(v,p)]++l2 = (v,p)::l2).
+  assert ([(v, p)] ++ l2 = (v, p) :: l2).
   list_solve. rewrite H8.
-  remember ((v,p)::l2) as l3.
+  remember ((v, p) :: l2) as l3.
   pose proof elem_left_dlrep.
   pose proof elem_left_dlrep l3 v' vert vert tail nullval nullval p.
 
@@ -1417,23 +1321,23 @@ Qed.
 
 (* insert_after *)
 Definition insert_after_spec :=
-DECLARE _insert_after
-WITH l1 : list (Z*val), v : Z, v': Z, p : val, p': val, l2 : list (Z*val), x: val
-PRE  [ tptr t_struct_list, tptr t_struct_node, tuint ]
-PROP () 
-PARAMS (x; p; Vint (Int.repr v'))
-GLOBALS ()
-SEP (list_rep_with_cursor (l1++[(v,p)]++l2) x)
-POST [ Tvoid ]
-PROP ()
-RETURN ()
-SEP (list_rep ((map fst l1) ++ [v] ++ [v'] ++ (map fst l2)) x).
+  DECLARE _insert_after
+  WITH l1 : list (Z*val), v : Z, v': Z, p : val, p': val, l2 : list (Z*val), x: val
+  PRE  [ tptr t_struct_list, tptr t_struct_node, tuint ]
+    PROP () 
+    PARAMS (x; p; Vint (Int.repr v'))
+    GLOBALS ()
+    SEP (list_rep_with_cursor (l1++[(v,p)]++l2) x)
+  POST [ Tvoid ]
+    PROP ()
+    RETURN ()
+    SEP (list_rep ((map fst l1) ++ [v] ++ [v'] ++ (map fst l2)) x).
 
 Definition Gprog_insert_after : funspecs :=
-ltac:(with_library prog [insert_after_spec; mallocN_spec]).
+            ltac:(with_library prog [insert_after_spec; mallocN_spec]).
 
 Theorem body_insert_after: semax_body Vprog Gprog_insert_after
-            f_insert_after insert_after_spec.
+                              f_insert_after insert_after_spec.
 Proof.
   start_function.
   forward_call (sizeof(Tstruct _node noattr)%expr) .
@@ -1653,7 +1557,7 @@ Proof.
             rewrite e.
             destruct x0.
             sep_apply dlrep_right_elem.
-            Intros Ooo0oooOOoOOoo000oOooOOOoooOOOoO00OO'0'0''oO0__0oo___OO.
+            Intros __.
             entailer!.   
         }
         * forward.
@@ -1696,7 +1600,7 @@ Proof.
           Exists head2.
           rewrite H.
           entailer!.
-          assert_PROP(vl1=[]).
+          assert_PROP(vl1 = []).
           { sep_apply dlrep_null_tail; entailer!. }
           rewrite H.
           autorewrite with sublist.
@@ -1705,13 +1609,13 @@ Proof.
           pose proof elem_left_dlrep vl2 z head2 head2 tail2 nullval nullval next'.
           sep_apply H8.
           reflexivity.
-          assert ( (z,head2)::vl2 = [(z,head2)]++vl2).
+          assert ((z, head2) :: vl2 = [(z, head2)] ++ vl2).
           list_solve.
           rewrite H9.
           entailer!.
         * Intros newL1Head. 
           forward.
-          assert (vl1 ++ [(z,head2)] ++ vl2 = vl1 ++ (z,head2) :: vl2).
+          assert (vl1 ++ [(z, head2)] ++ vl2 = vl1 ++ (z, head2) :: vl2).
           list_solve.
           rewrite H.
           sep_apply dlrep_middle_elem.
@@ -1745,10 +1649,10 @@ Proof.
           Exists (newL1Head) (tail2).
           entailer!.
           pose proof map_app.
-          specialize (H3 _ _ (fst) vl1 ([(z,head2)]++vl2)).
+          specialize (H3 _ _ (fst) vl1 ([(z, head2)] ++ vl2)).
           rewrite H3.
           pose proof map_app.
-          specialize (H4 _ _ fst [(z,head2)] vl2).
+          specialize (H4 _ _ fst [(z, head2)] vl2).
           rewrite H4.
           unfold map at 2, fst at 2.
           list_solve.
@@ -1756,8 +1660,7 @@ Proof.
   subst.
   destruct vl2.
   + unfold dlrep at 2.
-
-    assert_PROP(tail2=nullval).
+    assert_PROP(tail2 = nullval).
     entailer!.
     rewrite H.
 
@@ -1765,7 +1668,6 @@ Proof.
       data_at Tsh t_struct_list (nullval, nullval) p2 |--
       memory_block Tsh (sizeof t_struct_list) p2
     ).
-
     sep_apply data_at_memory_block. entailer!.
     sep_apply H0.
 
@@ -1828,7 +1730,7 @@ Proof.
 Qed.
 
 Definition Gprog_sum : funspecs :=
-            ltac:(with_library prog [sum_spec; begin_spec; end_spec; stronger_get_val_spec; stronger_next_spec]).
+                        ltac:(with_library prog [sum_spec; begin_spec; end_spec; get_val_spec; next_spec]).
 
 Theorem body_sum: semax_body Vprog Gprog_sum
                     f_sum sum_spec.
@@ -1842,13 +1744,6 @@ Proof.
   unfold list_rep_with_cursor.
   Intros head tail.
   unfold LOOP_BODY, abbreviate.
-  (*
-    要求：具备p0的信息：能够说明判定p0==nullval是合法的，不是垂悬指针
-          SEP部分不能太强：不能强于list_rep_with_cursor，否则next出来之后就没法往下了; 
-          在循环出来之后能有办法证明l2是[] 
-    UPD: 加强了get_val和next之后，不需要这么奇葩的SEP了...
-  *)
-
   forward_while (
     EX p0 prev: val,
     EX l1 l2: list(Z*val),
@@ -1858,20 +1753,17 @@ Proof.
         dlrep l1 head prev nullval p0;
         dlrep l2 p0 tail prev nullval)
   )%assert.
-
   {
     Exists (head) (nullval) (@nil (Z*val)) (l0).
     sep_apply dlrep_head_ptr.
     unfold dlrep at 2. entailer!.
   }
-
   {
     entailer!.
     destruct l2.
     + unfold dlrep. entailer!.
     + destruct p1. sep_apply dlrep_left_elem. Intros __. entailer!.
   }
-
   {
     destruct l2.
     {
@@ -1936,7 +1828,7 @@ Proof.
   2: {
     destruct p1.
     sep_apply dlrep_left_elem.
-    Intros next'. 
+    Intros next'.
     assert_PROP(v<>nullval).
     entailer!. congruence.
   }
@@ -1947,7 +1839,7 @@ Proof.
   unfold list_rep_with_cursor.
   Exists head tail.
   destruct H0.
-  assert (l0=l1).
+  assert (l0 = l1).
   rewrite H. list_solve.
   rewrite H3.
   unfold dlrep at 2.
@@ -1970,7 +1862,7 @@ Definition delta_spec :=
 
 (* RETURN parameters fixed *)
 Definition Gprog_delta : funspecs :=
-            ltac:(with_library prog [delta_spec; begin_spec; end_spec; stronger_get_val_spec; stronger_next_spec]).
+                          ltac:(with_library prog [delta_spec; begin_spec; end_spec; get_val_spec; next_spec]).
 
 Theorem body_delta: semax_body Vprog Gprog_delta
                       f_delta delta_spec.
@@ -2018,5 +1910,5 @@ Admitted.
       然后s的值也就是l1的所有元素和再减去l2l的所有元素的和了。
     同样的，感觉不太容易进行下去，可能整个思路都还需要一些修改..
 *)
+
 (* 2021-04-27 01:16 *)
-    
