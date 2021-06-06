@@ -1444,7 +1444,7 @@ Abort.
 			PROP ()
 			RETURN ()
 			SEP (list_rep ((map fst l1) ++ [v'] ++ [v] ++ (map fst l2)) x).
-	
+
 	Definition Gprog_insert_before : funspecs :=
 							ltac:(with_library prog [insert_before_spec; mallocN_spec]).
 
@@ -1464,16 +1464,16 @@ Abort.
 		pose proof malloc_compatible_field_compatible. 
 		assert_PROP (complete_legal_cosu_type (Tstruct _node noattr) = true).
 		{ entailer!. }
-	
+
 		assert_PROP (natural_aligned natural_alignment (Tstruct _node noattr) = true).
 		{ entailer!. }
-	
+
 		specialize (H1 _ (Tstruct _node noattr) vert).
-	
+
 		assert (memory_block Tsh (sizeof (Tstruct _node noattr)) vert =
 				data_at_ Tsh (Tstruct _node noattr) vert).
 		{ tauto. }
-	
+
 		rewrite H4.
 		clear H H0 H1 H2 H3 H4.
 		forward.
@@ -1499,7 +1499,7 @@ Abort.
 			entailer!.
 			destruct p0.
 			sep_apply dlrep_left_elem .
-			Intros _______________________.
+			Intros __.
 			entailer!.
 		}
 		forward_if_wrp.
@@ -1508,90 +1508,95 @@ Abort.
 			unfold dlrep at 1.
 			entailer!.
 			destruct p0. sep_apply dlrep_left_elem.
-			Intros __0000oooooOOOooOO__'''__''. subst. entailer!.
+			Intros __. subst. entailer!.
 		}
 		* 
-					forward.
-					entailer!.
-					assert_PROP(l1=[]). admit.
-					pose proof elem_left_dlrep l2 v p p tail vert nullval next'.
-					
-					entailer!.
-					entailer!. unfold t_struct_node. entailer!.
-					sep_apply H6. clear H6. reflexivity. 
-					cancel.
-					autorewrite with sublist.
-					unfold dlrep at 2.
+			forward.
+			entailer!.
+			assert_PROP(l1=[]). 
+			{
+				destruct l1.
+				{ entailer!. }
+				destruct p0.
+				unfold dlrep at 1. fold dlrep. Intros head'. subst.
+				sep_apply data_at_conflict.
+				unfold Tsh. apply top_share_nonidentity.
+				entailer!.
+			}
+			pose proof elem_left_dlrep l2 v p p tail vert nullval next'.
+			entailer!.
+			entailer!. unfold t_struct_node. entailer!.
+			sep_apply H6. clear H6. reflexivity. 
+			cancel.
+			autorewrite with sublist.
+			unfold dlrep at 2.
+			entailer!.
+			unfold list_rep.    
+			autorewrite with sublist.
+			Exists ([(v',vert)]++[(v,p)]++l2).
+			entailer!.
+			unfold list_rep_with_cursor.
+			Exists vert tail.
+			assert ([(v,p)]++l2 = (v,p)::l2).
+			list_solve. rewrite H8.
+			remember ((v,p)::l2) as l3.
+			pose proof elem_left_dlrep.
+			pose proof elem_left_dlrep l3 v' vert vert tail nullval nullval p.
+			
+			sep_apply H10. reflexivity.
+			assert((v',vert)::l3=[(v',vert)]++l3).
+			list_solve.
+			rewrite H11. entailer!.
+		*     
+			forward.
+			pose proof classic (l1=[]).
+			destruct H0. 
+			{
+				rewrite H0. 
+				unfold dlrep at 1.
+				assert_PROP(head=p). entailer!.
+				congruence.
+			}
+			pose proof exists_last. specialize (X _ l1). destruct X. tauto.
+			destruct s. rewrite e. destruct x1.
+			sep_apply dlrep_right_elem. Intros p'. subst.
+			forward.
+			entailer!.
+			unfold list_rep.
+			Exists (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v,p)] ++ l2).
+			unfold list_rep_with_cursor. Exists head tail. entailer!.
+			pose proof map_app.
+			specialize (H9 _ _ fst (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)]) l2).
+			assert(x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)] ++ l2 = (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)]) ++ l2).
+			list_solve. rewrite H10, H9.
+			assert([(v', vert)] ++ [(v, p)] = [(v',vert);(v,p)]).
+			list_solve. rewrite H11.
+			assert(x0 ++ [(z, prev')] ++ [(v', vert); (v, p)] = (x0 ++ [(z, prev')]) ++ [(v', vert); (v, p)]).
+			list_solve. rewrite H12.
+			pose proof map_app.
+			specialize (H13 _ _ fst (x0 ++ [(z, prev')]) ([(v', vert); (v, p)])).
+			rewrite H13.
+			unfold map at 2,fst at 2 3. list_solve.
+			pose proof elem_right_dlrep x0 z prev' head prev' nullval vert p'.
+			sep_apply H9. reflexivity.
+			cancel.
+			pose proof elem_left_dlrep l2 v p p tail vert nullval next'.
+			sep_apply H10. reflexivity.
+			assert((v,p)::l2=[(v,p)]++l2). list_solve. rewrite H11.
+			assert( (x0 ++ [(z, prev')]) ++  [(v', vert)] ++ [(v, p)] ++ l2 = 
+					x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)] ++ l2).
+			list_solve. rewrite <- H12.
+			remember (x0++[(z,prev')]) as ll.
+			remember ([(v,p)]++l2) as lr.
+			cancel.
+			pose proof elem_middle_dlrep ll lr v' vert head tail nullval nullval prev' p.
+			sep_apply H13.
+			assert(ll ++ (v', vert) :: lr = ll ++ [(v', vert)] ++ lr).
+			list_solve.
+			rewrite H14.
+			entailer!.
+	Qed.
 
-					entailer!.
-
-					unfold list_rep.
-					
-					autorewrite with sublist.
-					Exists ([(v',vert)]++[(v,p)]++l2).
-					entailer!.
-					unfold list_rep_with_cursor.
-					Exists vert tail.
-					assert ([(v,p)]++l2 = (v,p)::l2).
-					list_solve. rewrite H8.
-					remember ((v,p)::l2) as l3.
-					pose proof elem_left_dlrep.
-					pose proof elem_left_dlrep l3 v' vert vert tail nullval nullval p.
-					
-					sep_apply H10. reflexivity.
-					assert((v',vert)::l3=[(v',vert)]++l3).
-					list_solve.
-					rewrite H11. entailer!.
-				*     
-					forward.
-					assert (l1<>[]). admit.
-					pose proof exists_last. specialize (X _ l1). destruct X. tauto.
-					destruct s. rewrite e. destruct x1.
-					sep_apply dlrep_right_elem. Intros p'. subst.
-					forward.
-					entailer!.
-					unfold list_rep.
-					Exists (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v,p)] ++ l2).
-					unfold list_rep_with_cursor. Exists head tail. entailer!.
-					pose proof map_app.
-					specialize (H9 _ _ fst (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)]) l2).
-					assert(x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)] ++ l2 = (x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)]) ++ l2).
-					list_solve.
-					rewrite H10.
-					rewrite H9.
-					pose proof map_app.
-					specialize (H11 _ _ fst (x0 ++ [(z, prev')] ++ [(v', vert)]) ([(v,p)])).
-					assert(x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)]=(x0 ++ [(z, prev')] ++ [(v', vert)]) ++ [(v, p)])%assert.
-					list_solve.
-					rewrite H12.
-					rewrite H11.
-					pose proof map_app.
-					specialize (H13 _ _ fst (x0 ++ [(z, prev')]) ([(v',vert)])).
-					assert(x0 ++ [(z, prev')] ++ [(v', vert)]=(x0 ++ [(z, prev')]) ++ [(v', vert)]).
-					list_solve.
-					rewrite H14. rewrite H13.
-					unfold map at 2 3,  fst at 2 3.
-					list_solve.
-					pose proof elem_right_dlrep x0 z prev' head prev' nullval vert p'.
-					sep_apply H9. reflexivity.
-					cancel.
-					pose proof elem_left_dlrep l2 v p p tail vert nullval next'.
-					sep_apply H10. reflexivity.
-					assert((v,p)::l2=[(v,p)]++l2). list_solve. rewrite H11.
-					assert( (x0 ++ [(z, prev')]) ++  [(v', vert)] ++ [(v, p)] ++ l2 = 
-							x0 ++ [(z, prev')] ++ [(v', vert)] ++ [(v, p)] ++ l2).
-						list_solve. rewrite <- H12.
-					remember (x0++[(z,prev')]) as ll.
-					remember ([(v,p)]++l2) as lr.
-					cancel.
-					pose proof elem_middle_dlrep ll lr v' vert head tail nullval nullval prev' p.
-					sep_apply H13.
-					assert(ll ++ (v', vert) :: lr = ll ++ [(v', vert)] ++ lr).
-					list_solve.
-					rewrite H14.
-					entailer!.
-	Admitted.
-	
 	(* insert_after *)
 	Definition insert_after_spec :=
 		DECLARE _insert_after
@@ -1605,10 +1610,10 @@ Abort.
 			PROP ()
 			RETURN ()
 			SEP (list_rep ((map fst l1) ++ [v] ++ [v'] ++ (map fst l2)) x).
-	
+
 	Definition Gprog_insert_after : funspecs :=
 							ltac:(with_library prog [insert_after_spec; mallocN_spec]).
-	
+
 	Theorem body_insert_after: semax_body Vprog Gprog_insert_after
 																f_insert_after insert_after_spec.
 	Proof.
@@ -1624,12 +1629,12 @@ Abort.
 		pose proof malloc_compatible_field_compatible. 
 		assert_PROP (complete_legal_cosu_type (Tstruct _node noattr) = true).
 		{ entailer!. }
-	
+
 		assert_PROP (natural_aligned natural_alignment (Tstruct _node noattr) = true).
 		{ entailer!. }
-	
+
 		specialize (H1 _ (Tstruct _node noattr) vert).
-	
+
 		assert (memory_block Tsh (sizeof (Tstruct _node noattr)) vert =
 				data_at_ Tsh (Tstruct _node noattr) vert).
 		{ tauto. }
@@ -1646,9 +1651,7 @@ Abort.
 			sep_apply H0.
 			entailer!.
 		}
-		forward.
-		forward.
-		forward.
+		repeat forward.
 		{
 			pose proof classic (l2=[]).
 			destruct H0.
@@ -1674,7 +1677,21 @@ Abort.
 		}
 		+ forward.
 			entailer!.
-			assert (l2 = []). admit.
+			assert_PROP (l2 = []). 
+			{
+				pose proof classic (l2=[]).
+				destruct H6.
+				{ rewrite H6. entailer!. }
+				pose proof exists_last. specialize (X _ l2).
+				apply X in H6. destruct H6. destruct s. destruct x1. rewrite e.
+				sep_apply dlrep_right_elem.
+				Intros p'0. subst.
+				cancel.
+				
+				sep_apply data_at_conflict .  
+				unfold Tsh. apply top_share_nonidentity.
+				entailer!.
+			}
 			rewrite H6.
 			unfold dlrep at 2. unfold list_rep.
 			Exists (l1 ++ [(v,p)] ++ [(v',vert)]).
@@ -1689,7 +1706,14 @@ Abort.
 			assert(((l1 ++ [(v, p)]) ++ [(v', vert)])=(l1 ++ [(v, p)] ++ [(v', vert)])).
 			list_solve. rewrite H8. entailer!.
 		+ forward.
-			assert (l2<>[]). admit.
+			pose proof classic (l2=[]).
+			destruct H1.
+			{
+				rewrite H1.
+				unfold dlrep at 2.
+				assert_PROP(tail=p). entailer!.
+				congruence.
+			}
 			destruct l2; [congruence | destruct p0].
 			sep_apply dlrep_left_elem. Intros next'. subst.
 			forward.
@@ -1722,7 +1746,7 @@ Abort.
 			assert(((l1 ++ [(v, p)] ++ [(v', vert)]) ++ (z, nx) :: l2)=(l1 ++ [(v, p)] ++ [(v', vert)] ++ [(z, nx)] ++ l2)).
 			list_solve. rewrite <- H13.
 			entailer!.
-	Admitted.
+	Qed.
 	
 	(* merge *)
 	Definition merge_spec :=
