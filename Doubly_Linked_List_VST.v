@@ -22,7 +22,7 @@
     You may change the definition below if your version is better. *)
 
 Require Import VST.floyd.proofauto.
-Require Import EV.AuxiliaryTac.
+Require Import EV.AuxilaryTac.
 Require Import EV.dlinklist.
 
 Instance CompSpecs : compspecs. make_compspecs prog. Defined.
@@ -1879,5 +1879,4 @@ Admitted.
       然后s的值也就是l1的所有元素和再减去l2l的所有元素的和了。
     同样的，感觉不太容易进行下去，可能整个思路都还需要一些修改..
 *)
-
 (* 2021-04-27 01:16 *)
