@@ -325,8 +325,6 @@ Proof.
   unfold dlrep.
   { entailer!. }
 Qed.
-
-(* Require Import PL.Imp. *)
   
 Lemma dlrep_local_facts_tail_not_empty:
   forall l head tail prev next,
